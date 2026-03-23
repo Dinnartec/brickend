@@ -1,0 +1,685 @@
+openapi: 3.2.0
+info:
+  title: Brickend Demo API
+  version: 1.0.0
+  description: |
+    Reference Brickend backend — three Supabase Edge Functions: `auth`, `users`, `entities`.
+    All protected routes require a Bearer JWT obtained from `/auth/signin` or `/auth/signup`.
+
+servers:
+  - url: http://localhost:54321/functions/v1
+    description: Local Supabase dev stack
+
+security: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: Unauthorized
+
+    User:
+      type: object
+      required: [id, full_name, email, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        identification_type:
+          type: ["string", "null"]
+          example: CC
+        identification_number:
+          type: ["string", "null"]
+          example: "1.234.567.890"
+        deleted_at:
+          type: ["string", "null"]
+          format: date-time
+
+    Entity:
+      type: object
+      required: [id, owner_id, name, identification_type, identification_number, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Acme Corp
+        identification_type:
+          $ref: '#/components/schemas/IdentificationType'
+        identification_number:
+          type: string
+          example: 900123456-1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: ["string", "null"]
+          format: date-time
+
+    IdentificationType:
+      type: object
+      required: [slug, name, description, format, is_active, created_at, updated_at]
+      properties:
+        slug:        { type: string, example: NIT }
+        name:        { type: string, example: NIT }
+        description: { type: string }
+        format:      { type: string, example: '999.999.999-9' }
+        is_active:   { type: boolean }
+        created_at:  { type: string, format: date-time }
+        updated_at:  { type: string, format: date-time }
+        deleted_at:  { type: ["string", "null"], format: date-time }
+
+    IdentificationType:
+      type: string
+      description: Slug of an active `identification_types` record (e.g. NIT, CC, TI, CE, PASAPORTE)
+      example: NIT
+
+    SignUpRequest:
+      type: object
+      required: [email, password, full_name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        password:
+          type: string
+          minLength: 6
+          example: secret123
+        full_name:
+          type: string
+          minLength: 1
+          example: Jane Doe
+
+    SignInRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        password:
+          type: string
+          example: secret123
+
+    CreateUserRequest:
+      type: object
+      required: [full_name, email]
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        identification_type:
+          type: string
+          minLength: 1
+          example: CC
+        identification_number:
+          type: string
+          minLength: 1
+          example: "1.234.567.890"
+
+    UpdateUserRequest:
+      type: object
+      minProperties: 1
+      properties:
+        full_name:
+          type: string
+          minLength: 1
+          example: Jane Smith
+        email:
+          type: string
+          format: email
+          example: jane.smith@example.com
+        identification_type:
+          type: string
+          minLength: 1
+          example: CC
+        identification_number:
+          type: string
+          minLength: 1
+          example: "1.234.567.890"
+
+    CreateEntityRequest:
+      type: object
+      required: [name, identification_type, identification_number]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          example: Acme Corp
+        identification_type:
+          $ref: '#/components/schemas/IdentificationType'
+        identification_number:
+          type: string
+          minLength: 1
+          example: 900123456-1
+
+    UpdateEntityRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          example: Acme Corporation
+        identification_type:
+          $ref: '#/components/schemas/IdentificationType'
+        identification_number:
+          type: string
+          minLength: 1
+          example: 900123456-2
+
+    ListUsersResponse:
+      type: object
+      required: [data, total, limit, offset]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        total:
+          type: integer
+          example: 42
+        limit:
+          type: integer
+          example: 20
+        offset:
+          type: integer
+          example: 0
+
+    ListEntitiesResponse:
+      type: object
+      required: [data, total, limit, offset]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+        total:
+          type: integer
+          example: 10
+        limit:
+          type: integer
+          example: 20
+        offset:
+          type: integer
+          example: 0
+
+paths:
+  # ---------------------------------------------------------------------------
+  # auth
+  # ---------------------------------------------------------------------------
+  /auth/signup:
+    post:
+      tags: [auth]
+      summary: Sign up a new user
+      description: Creates an auth user and a `user_profiles` row, then returns a session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: User created and session returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                  session:
+                    type: object
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/signin:
+    post:
+      tags: [auth]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Session returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                  session:
+                    type: object
+        '400':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/signout:
+    post:
+      tags: [auth]
+      summary: Sign out the current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Signed out
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Get the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # users
+  # ---------------------------------------------------------------------------
+  /users:
+    get:
+      tags: [users]
+      summary: List users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Filter by full_name (case-insensitive)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [users]
+      summary: Create a user profile (internal)
+      description: Inserts a `user_profiles` row. The `id` must correspond to an existing Supabase Auth user. Prefer `/auth/signup` for end-user registration.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [users]
+      summary: Get a user by ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags: [users]
+      summary: Update a user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [users]
+      summary: Soft-delete a user
+      description: Sets `deleted_at`; the record is excluded from all queries.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Deleted (no content)
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # entities
+  # ---------------------------------------------------------------------------
+  /entities:
+    get:
+      tags: [entities]
+      summary: List entities
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Full-text search on entity name
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Paginated list of entities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEntitiesResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [entities]
+      summary: Create an entity
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEntityRequest'
+      responses:
+        '201':
+          description: Entity created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /entities/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [entities]
+      summary: Get an entity by ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Entity found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags: [entities]
+      summary: Update an entity
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEntityRequest'
+      responses:
+        '200':
+          description: Updated entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [entities]
+      summary: Soft-delete an entity
+      description: Sets `deleted_at`; the record is excluded from all queries.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Deleted (no content)
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

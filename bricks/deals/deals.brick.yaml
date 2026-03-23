@@ -1,0 +1,39 @@
+brick:
+  name: deals
+  version: "1.0.0"
+  description: "Deal pipeline management for CRM"
+
+requires:
+  - { brick: auth, version: ">=1.0.0" }
+  - { brick: contacts, version: ">=1.0.0" }
+
+config: {}
+
+schema:
+  table: deals
+  primary_key: deal_id
+  fields:
+    - { name: deal_id, type: uuid, default: "gen_random_uuid()" }
+    - { name: owner_id, type: uuid, references: auth }
+    - { name: contact_id, type: uuid, references: contacts, nullable: true }
+    - { name: title, type: string, required: true }
+    - { name: value, type: numeric, nullable: true }
+    - { name: stage, type: string, required: true }
+    - { name: description, type: text, nullable: true }
+  indexes:
+    - { name: deals_title_gin_idx, columns: [title], type: gin, expression: "to_tsvector('simple', title)" }
+
+access:
+  - { role: admin, actions: [list, get, create, update, softDelete] }
+  - { role: salesman, actions: [list, get, create, update, softDelete], own_only: true }
+  - { role: viewer, actions: [list, get], own_only: true }
+
+api:
+  auth_required: true
+  search_field: title
+  endpoints:
+    - { method: GET, path: /, handler: list, has_pagination: true }
+    - { method: GET, path: /:id, handler: get }
+    - { method: POST, path: /, handler: create, status: 201 }
+    - { method: PATCH, path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

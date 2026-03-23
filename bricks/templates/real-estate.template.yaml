@@ -1,0 +1,26 @@
+template:
+  name: real-estate
+  version: "1.0.0"
+  description: "Real estate platform with property listings and lead management"
+
+settings:
+  multi_tenant: false
+
+roles:
+  - name: admin
+    description: "Broker or company administrator"
+    is_default: true
+  - name: agent
+    description: "Real estate agent managing listings and leads"
+  - name: buyer
+    description: "Property searcher"
+
+baseline:
+  - { brick: identification_types, version: ">=1.0.0" }
+  - { brick: auth, version: ">=1.0.0" }
+  - { brick: users, version: ">=1.0.0" }
+  - { brick: properties, version: ">=1.0.0" }
+  - { brick: leads, version: ">=1.0.0" }
+
+bricks:
+  - { brick: entities, version: ">=1.0.0" }

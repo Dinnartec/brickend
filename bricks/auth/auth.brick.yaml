@@ -1,0 +1,47 @@
+brick:
+  name: auth
+  version: "1.0.0"
+  description: "Authentication (JWT, signup, signin, signout)"
+
+requires: []
+config: {}
+
+schema:
+  fields:
+    - name: email
+      type: email
+      required: true
+    - name: password
+      type: string
+      required: true
+    - name: full_name
+      type: string
+      required: true
+
+access:
+  - role: admin
+    actions: [signup, signin, signout, me]
+  - role: member
+    actions: [signin, signout, me]
+  - role: viewer
+    actions: [signin, signout, me]
+
+api:
+  type: auth
+  endpoints:
+    - method: POST
+      path: /signup
+      handler: signup
+      status: 201
+      body:
+        - { name: email,     type: email,  required: true }
+        - { name: password,  type: string, required: true }
+        - { name: full_name, type: string, required: true }
+    - method: POST
+      path: /signin
+      handler: signin
+      body:
+        - { name: email,    type: email,  required: true }
+        - { name: password, type: string, required: true }
+    - { method: POST, path: /signout, handler: signout }
+    - { method: GET,  path: /me,      handler: me }

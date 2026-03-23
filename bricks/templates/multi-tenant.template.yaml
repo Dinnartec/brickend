@@ -1,0 +1,26 @@
+template:
+  name: multi-tenant
+  version: "1.0.0"
+  description: "Multi-tenant API with workspaces"
+
+settings:
+  multi_tenant: true
+
+roles:
+  - name: admin
+    description: "Workspace admin"
+    is_default: true
+  - name: member
+    description: "Workspace member"
+  - name: viewer
+    description: "Read-only access"
+
+baseline:
+  - { brick: identification_types, version: ">=1.0.0" }
+  - { brick: auth, version: ">=1.0.0" }
+  - { brick: users, version: ">=1.0.0" }
+  - { brick: workspaces, version: ">=1.0.0" }
+
+bricks:
+  - { brick: entities, version: ">=1.0.0" }
+  - { brick: catalog, version: ">=1.0.0" }

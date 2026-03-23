@@ -1,0 +1,26 @@
+template:
+  name: marketplace
+  version: "1.0.0"
+  description: "Basic marketplace with products and orders"
+
+settings:
+  multi_tenant: false
+
+roles:
+  - name: admin
+    description: "Marketplace administrator"
+    is_default: true
+  - name: seller
+    description: "Product seller"
+  - name: buyer
+    description: "Product buyer"
+
+baseline:
+  - { brick: identification_types, version: ">=1.0.0" }
+  - { brick: auth, version: ">=1.0.0" }
+  - { brick: users, version: ">=1.0.0" }
+  - { brick: products, version: ">=1.0.0" }
+  - { brick: orders, version: ">=1.0.0" }
+
+bricks:
+  - { brick: entities, version: ">=1.0.0" }

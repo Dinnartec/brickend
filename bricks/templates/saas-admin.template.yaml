@@ -1,0 +1,26 @@
+template:
+  name: saas-admin
+  version: "1.0.0"
+  description: "Multi-tenant SaaS admin panel with workspaces, entities, and catalog"
+
+settings:
+  multi_tenant: true
+
+roles:
+  - name: admin
+    description: "Workspace administrator with full access"
+    is_default: true
+  - name: member
+    description: "Team member with standard access"
+  - name: viewer
+    description: "Read-only access to workspace data"
+
+baseline:
+  - { brick: identification_types, version: ">=1.0.0" }
+  - { brick: auth, version: ">=1.0.0" }
+  - { brick: users, version: ">=1.0.0" }
+  - { brick: workspaces, version: ">=1.0.0" }
+  - { brick: entities, version: ">=1.0.0" }
+  - { brick: catalog, version: ">=1.0.0" }
+
+bricks: []

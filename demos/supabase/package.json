@@ -1,0 +1,15 @@
+{
+	"name": "brickend-demo",
+	"private": true,
+	"scripts": {
+		"start": "supabase start",
+		"stop": "supabase stop",
+		"db:reset": "supabase db reset",
+		"db:push": "supabase db push",
+		"db:diff": "supabase db diff -f",
+		"db:types": "supabase gen types typescript --local --schema public > functions/_shared/types/database.generated.ts",
+		"functions:serve": "supabase functions serve",
+		"status": "supabase status",
+		"start:clean": "supabase db reset && supabase functions serve"
+	}
+}

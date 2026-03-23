@@ -1,0 +1,53 @@
+brick:
+  name: catalog-categories
+  version: "1.0.0"
+  description: "Lookup table for catalog category classifications"
+  type: extension
+
+requires: []
+
+config: {}
+
+schema:
+  db_schema: catalog
+  table: catalog_categories
+  primary_key: catalog_category_id
+  fields:
+    - name: catalog_category_id
+      type: uuid
+      default: "gen_random_uuid()"
+    - name: slug
+      type: string
+      required: true
+    - name: name
+      type: string
+      required: true
+    - name: description
+      type: text
+      nullable: true
+    - name: is_active
+      type: boolean
+      default: "true"
+  indexes:
+    - name: catalog_categories_slug_idx
+      columns: [slug]
+      type: unique
+      where: "deleted_at IS NULL"
+access:
+  - role: admin
+    actions: [list, get, create, update, softDelete]
+  - role: member
+    actions: [list, get, create]
+    own_only: true
+  - role: viewer
+    actions: [list, get]
+    own_only: true
+
+api:
+  auth_required: true
+  endpoints:
+    - { method: GET,    path: /,    handler: list,       has_pagination: true }
+    - { method: GET,    path: /:id, handler: get }
+    - { method: POST,   path: /,    handler: create,     status: 201 }
+    - { method: PATCH,  path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

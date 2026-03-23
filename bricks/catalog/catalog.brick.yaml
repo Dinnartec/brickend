@@ -1,0 +1,86 @@
+brick:
+  name: catalog
+  version: "1.0.0"
+  description: "Product and service catalog management for a business entity"
+
+requires:
+  - { brick: entities, version: ">=1.0.0" }
+  - { brick: auth, version: ">=1.0.0" }
+
+extensions:
+  - { brick: catalog-item-types, version: ">=1.0.0" }
+  - { brick: catalog-categories, version: ">=1.0.0" }
+
+config: {}
+
+schema:
+  db_schema: catalog
+  table: catalog_items
+  primary_key: catalog_item_id
+  fields:
+    - name: catalog_item_id
+      type: uuid
+      default: "gen_random_uuid()"
+    - name: entity_id
+      type: uuid
+      references: entities
+    - name: item_type_id
+      type: uuid
+      nullable: true
+      references: catalog-item-types
+    - name: category_id
+      type: uuid
+      nullable: true
+      references: catalog-categories
+    - name: name
+      type: string
+      required: true
+    - name: description
+      type: text
+      nullable: true
+    - name: sub_category
+      type: string
+      nullable: true
+    - name: unit
+      type: string
+      nullable: true
+    - name: value
+      type: numeric
+      required: true
+    - name: is_available
+      type: boolean
+      default: "true"
+  indexes:
+    - name: catalog_items_name_gin_idx
+      columns: [name]
+      type: gin
+      expression: "to_tsvector('simple', name)"
+  constraints:
+    create:
+      catalog_items_entity_id_fkey:
+        type: ValidationError
+        message: "Invalid entity"
+    update:
+      catalog_items_entity_id_fkey:
+        type: ValidationError
+        message: "Invalid entity"
+
+access:
+  - role: admin
+    actions: [list, get, create, update, softDelete]
+  - role: member
+    actions: [list, get, create]
+    own_only: true
+  - role: viewer
+    actions: [list, get]
+    own_only: true
+
+api:
+  auth_required: true
+  search_field: name
+  endpoints:
+    - { method: GET,    path: /,    handler: list,       has_pagination: true }
+    - { method: GET,    path: /:id, handler: get }
+    - { method: POST,   path: /,    handler: create,     status: 201 }
+    - { method: PATCH,  path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

@@ -1,0 +1,68 @@
+brick:
+  name: users
+  version: "1.0.0"
+  description: "User profile management (CRUD)"
+
+requires:
+  - { brick: identification_types, version: ">=1.0.0" }
+  - { brick: auth, version: ">=1.0.0" }
+
+config: {}
+
+schema:
+  table: user_profiles
+  primary_key: user_id
+  fields:
+    - name: user_id
+      type: uuid
+      references: auth
+    - name: full_name
+      type: string
+      required: true
+    - name: email
+      type: email
+      required: true
+    - name: identification_type
+      type: string
+      nullable: true
+      references: identification_types
+    - name: identification_number
+      type: string
+      nullable: true
+  indexes:
+    - name: user_profiles_full_name_idx
+      columns: [full_name]
+      type: gin
+      expression: "to_tsvector('simple', full_name)"
+  constraints:
+    create:
+      user_profiles_pkey:
+        type: ConflictError
+        message: "A user profile with this ID already exists"
+      user_profiles_identification_type_fkey:
+        type: ValidationError
+        message: "Invalid identification type"
+    update:
+      user_profiles_identification_type_fkey:
+        type: ValidationError
+        message: "Invalid identification type"
+
+access:
+  - role: admin
+    actions: [list, get, create, update, softDelete]
+  - role: member
+    actions: [list, get]
+    own_only: true
+  - role: viewer
+    actions: [list, get]
+    own_only: true
+
+api:
+  auth_required: true
+  search_field: full_name
+  endpoints:
+    - { method: GET,    path: /,    handler: list,       has_pagination: true }
+    - { method: GET,    path: /:id, handler: get }
+    - { method: POST,   path: /,    handler: create,     status: 201 }
+    - { method: PATCH,  path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

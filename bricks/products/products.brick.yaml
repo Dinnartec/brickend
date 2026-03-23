@@ -1,0 +1,39 @@
+brick:
+  name: products
+  version: "1.0.0"
+  description: "Product listings for marketplace"
+
+requires:
+  - { brick: auth, version: ">=1.0.0" }
+
+config: {}
+
+schema:
+  table: products
+  primary_key: product_id
+  fields:
+    - { name: product_id, type: uuid, default: "gen_random_uuid()" }
+    - { name: owner_id, type: uuid, references: auth }
+    - { name: name, type: string, required: true }
+    - { name: description, type: text, nullable: true }
+    - { name: price, type: numeric, required: true }
+    - { name: category, type: string, nullable: true }
+    - { name: stock, type: numeric, nullable: true }
+    - { name: is_available, type: boolean, required: true }
+  indexes:
+    - { name: products_name_gin_idx, columns: [name], type: gin, expression: "to_tsvector('simple', name)" }
+
+access:
+  - { role: admin, actions: [list, get, create, update, softDelete] }
+  - { role: seller, actions: [list, get, create, update, softDelete], own_only: true }
+  - { role: buyer, actions: [list, get] }
+
+api:
+  auth_required: true
+  search_field: name
+  endpoints:
+    - { method: GET, path: /, handler: list, has_pagination: true }
+    - { method: GET, path: /:id, handler: get }
+    - { method: POST, path: /, handler: create, status: 201 }
+    - { method: PATCH, path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

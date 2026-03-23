@@ -1,0 +1,23 @@
+brick:
+  name: test-brick
+  version: "1.0.0"
+  description: "A test brick for unit tests"
+
+requires: []
+
+config:
+  some_option:
+    description: "A test config option"
+    type: "string"
+    default: "hello"
+
+schema:
+  table: test_items
+  primary_key: test_id
+  fields:
+    - name: test_id
+      type: uuid
+      default: "gen_random_uuid()"
+    - name: title
+      type: string
+      required: true

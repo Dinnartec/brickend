@@ -1,0 +1,36 @@
+brick:
+  name: orders
+  version: "1.0.0"
+  description: "Order management for marketplace"
+
+requires:
+  - { brick: auth, version: ">=1.0.0" }
+  - { brick: products, version: ">=1.0.0" }
+
+config: {}
+
+schema:
+  table: orders
+  primary_key: order_id
+  fields:
+    - { name: order_id, type: uuid, default: "gen_random_uuid()" }
+    - { name: owner_id, type: uuid, references: auth }
+    - { name: product_id, type: uuid, references: products }
+    - { name: quantity, type: numeric, required: true }
+    - { name: total_amount, type: numeric, required: true }
+    - { name: status, type: string, required: true }
+    - { name: shipping_address, type: text, nullable: true }
+
+access:
+  - { role: admin, actions: [list, get, create, update, softDelete] }
+  - { role: seller, actions: [list, get, update], own_only: true }
+  - { role: buyer, actions: [list, get, create], own_only: true }
+
+api:
+  auth_required: true
+  endpoints:
+    - { method: GET, path: /, handler: list, has_pagination: true }
+    - { method: GET, path: /:id, handler: get }
+    - { method: POST, path: /, handler: create, status: 201 }
+    - { method: PATCH, path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

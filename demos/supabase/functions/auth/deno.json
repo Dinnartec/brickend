@@ -1,0 +1,6 @@
+{
+	"imports": {
+		"npm:@supabase/supabase-js@2": "npm:@supabase/supabase-js@2",
+		"npm:zod@4": "npm:zod@4"
+	}
+}

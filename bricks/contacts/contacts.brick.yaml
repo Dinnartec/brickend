@@ -1,0 +1,40 @@
+brick:
+  name: contacts
+  version: "1.0.0"
+  description: "Contact management for CRM (people linked to entities)"
+
+requires:
+  - { brick: auth, version: ">=1.0.0" }
+  - { brick: entities, version: ">=1.0.0" }
+
+config: {}
+
+schema:
+  table: contacts
+  primary_key: contact_id
+  fields:
+    - { name: contact_id, type: uuid, default: "gen_random_uuid()" }
+    - { name: owner_id, type: uuid, references: auth }
+    - { name: entity_id, type: uuid, references: entities, nullable: true }
+    - { name: full_name, type: string, required: true }
+    - { name: email, type: email, nullable: true }
+    - { name: phone, type: string, nullable: true }
+    - { name: position, type: string, nullable: true }
+    - { name: notes, type: text, nullable: true }
+  indexes:
+    - { name: contacts_full_name_gin_idx, columns: [full_name], type: gin, expression: "to_tsvector('simple', full_name)" }
+
+access:
+  - { role: admin, actions: [list, get, create, update, softDelete] }
+  - { role: salesman, actions: [list, get, create, update, softDelete], own_only: true }
+  - { role: viewer, actions: [list, get], own_only: true }
+
+api:
+  auth_required: true
+  search_field: full_name
+  endpoints:
+    - { method: GET, path: /, handler: list, has_pagination: true }
+    - { method: GET, path: /:id, handler: get }
+    - { method: POST, path: /, handler: create, status: 201 }
+    - { method: PATCH, path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

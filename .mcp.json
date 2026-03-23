@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"supabase": {
+			"type": "http",
+			"url": "http://localhost:54421/mcp"
+		},
+		"context7": {
+			"type": "http",
+			"url": "https://mcp.context7.com/mcp"
+		}
+	}
+}

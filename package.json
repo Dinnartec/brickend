@@ -1,0 +1,63 @@
+{
+	"name": "brickend",
+	"version": "0.1.0",
+	"description": "Build software brick by brick — composable, production-ready modules with persistent state for AI agents and humans",
+	"type": "module",
+	"license": "MIT",
+	"author": "Dinnartec",
+	"homepage": "https://github.com/dinnartec/brickend",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/dinnartec/brickend.git"
+	},
+	"bugs": {
+		"url": "https://github.com/dinnartec/brickend/issues"
+	},
+	"keywords": [
+		"supabase",
+		"edge-functions",
+		"backend",
+		"scaffolding",
+		"cli",
+		"code-generator",
+		"typescript",
+		"deno",
+		"rbac",
+		"multi-tenant"
+	],
+	"bin": {
+		"brickend": "./dist/cli/index.js",
+		"brickend-mcp": "./dist/mcp/index.js"
+	},
+	"main": "./dist/cli/index.js",
+	"files": [
+		"dist/",
+		"bricks/",
+		"LICENSE",
+		"README.md"
+	],
+	"scripts": {
+		"build": "bun build src/cli/index.ts --outdir dist/cli --target bun && bun build src/mcp/index.ts --outdir dist/mcp --target bun",
+		"dev": "bun --watch src/cli/index.ts",
+		"test": "bun test",
+		"lint": "bunx biome check .",
+		"lint:fix": "bunx biome check --fix .",
+		"prepublishOnly": "bun run lint && bun test && bun run build",
+		"smoke-test": "bash scripts/smoke-test.sh"
+	},
+	"dependencies": {
+		"@clack/prompts": "1.1.0",
+		"@modelcontextprotocol/sdk": "^1.27.1",
+		"chalk": "5.6.2",
+		"commander": "14.0.3",
+		"semver": "7.7.4",
+		"yaml": "2.8.2",
+		"zod": "^3.25"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.7",
+		"@types/bun": "1.3.10",
+		"@types/semver": "7.7.0",
+		"typescript": "5.9.3"
+	}
+}

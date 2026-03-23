@@ -1,0 +1,43 @@
+brick:
+  name: properties
+  version: "1.0.0"
+  description: "Property listings for real estate"
+
+requires:
+  - { brick: auth, version: ">=1.0.0" }
+
+config: {}
+
+schema:
+  table: properties
+  primary_key: property_id
+  fields:
+    - { name: property_id, type: uuid, default: "gen_random_uuid()" }
+    - { name: owner_id, type: uuid, references: auth }
+    - { name: title, type: string, required: true }
+    - { name: property_type, type: string, required: true }
+    - { name: address, type: string, required: true }
+    - { name: city, type: string, required: true }
+    - { name: price, type: numeric, required: true }
+    - { name: bedrooms, type: numeric, nullable: true }
+    - { name: bathrooms, type: numeric, nullable: true }
+    - { name: area_sqft, type: numeric, nullable: true }
+    - { name: description, type: text, nullable: true }
+    - { name: is_available, type: boolean, required: true }
+  indexes:
+    - { name: properties_title_gin_idx, columns: [title], type: gin, expression: "to_tsvector('simple', title)" }
+
+access:
+  - { role: admin, actions: [list, get, create, update, softDelete] }
+  - { role: agent, actions: [list, get, create, update, softDelete], own_only: true }
+  - { role: buyer, actions: [list, get] }
+
+api:
+  auth_required: true
+  search_field: title
+  endpoints:
+    - { method: GET, path: /, handler: list, has_pagination: true }
+    - { method: GET, path: /:id, handler: get }
+    - { method: POST, path: /, handler: create, status: 201 }
+    - { method: PATCH, path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

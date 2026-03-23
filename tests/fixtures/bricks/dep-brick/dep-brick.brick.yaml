@@ -1,0 +1,8 @@
+brick:
+  name: dep-brick
+  version: "1.0.0"
+  description: "A brick that requires test-brick"
+
+requires:
+  - brick: test-brick
+    version: ">=1.0.0"

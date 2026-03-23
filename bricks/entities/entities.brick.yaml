@@ -1,0 +1,75 @@
+brick:
+  name: entities
+  version: "1.0.0"
+  description: "Business entity management (companies, people)"
+
+requires:
+  - { brick: identification_types, version: ">=1.0.0" }
+  - { brick: auth, version: ">=1.0.0" }
+
+config: {}
+
+schema:
+  table: entities
+  primary_key: entity_id
+  fields:
+    - name: entity_id
+      type: uuid
+      default: "gen_random_uuid()"
+    - name: owner_id
+      type: uuid
+      references: auth
+    - name: name
+      type: string
+      required: true
+    - name: identification_type
+      type: string
+      required: true
+      references: identification_types
+    - name: identification_number
+      type: string
+      required: true
+  indexes:
+    - name: entities_owner_identification_unique_idx
+      columns: [owner_id, identification_type, identification_number]
+      type: unique
+      where: "deleted_at is null"
+    - name: entities_name_gin_idx
+      columns: [name]
+      type: gin
+      expression: "to_tsvector('simple', name)"
+  constraints:
+    create:
+      entities_owner_identification_unique_idx:
+        type: ConflictError
+        message: "An entity with this identification type and number already exists"
+      entities_identification_type_fkey:
+        type: ValidationError
+        message: "Invalid identification type"
+    update:
+      entities_owner_identification_unique_idx:
+        type: ConflictError
+        message: "An entity with this identification type and number already exists"
+      entities_identification_type_fkey:
+        type: ValidationError
+        message: "Invalid identification type"
+
+access:
+  - role: admin
+    actions: [list, get, create, update, softDelete]
+  - role: member
+    actions: [list, get, create]
+    own_only: true
+  - role: viewer
+    actions: [list, get]
+    own_only: true
+
+api:
+  auth_required: true
+  search_field: name
+  endpoints:
+    - { method: GET,    path: /,    handler: list,       has_pagination: true }
+    - { method: GET,    path: /:id, handler: get }
+    - { method: POST,   path: /,    handler: create,     status: 201 }
+    - { method: PATCH,  path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }

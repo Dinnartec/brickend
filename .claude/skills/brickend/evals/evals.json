@@ -1,0 +1,79 @@
+{
+  "skill_name": "brickend",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need to create a simple backend API for a new project called 'todo-api'. Just basic auth and user management, nothing fancy.",
+      "expected_output": "Agent should use brickend init todo-api --template starter, then verify with brickend status. Should NOT add extra bricks unless asked.",
+      "assertions": [
+        {
+          "name": "uses_starter_template",
+          "text": "Agent uses the starter template (not business or multi-tenant)",
+          "type": "manual"
+        },
+        {
+          "name": "runs_brickend_init",
+          "text": "Agent runs brickend init with the project name 'todo-api'",
+          "type": "manual"
+        },
+        {
+          "name": "verifies_with_status",
+          "text": "Agent runs brickend status to verify the project was created",
+          "type": "manual"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Create a multi-tenant SaaS backend called 'team-hub' with entity management and a product catalog. Each team should have their own workspace.",
+      "expected_output": "Agent should use brickend init team-hub --template multi-tenant, then add entities and catalog bricks. Should recognize multi-tenant need from 'each team should have their own workspace'.",
+      "assertions": [
+        {
+          "name": "uses_multi_tenant_template",
+          "text": "Agent selects the multi-tenant template based on workspace requirement",
+          "type": "manual"
+        },
+        {
+          "name": "adds_entities_brick",
+          "text": "Agent adds the entities brick",
+          "type": "manual"
+        },
+        {
+          "name": "adds_catalog_brick",
+          "text": "Agent adds the catalog brick for product catalog",
+          "type": "manual"
+        },
+        {
+          "name": "correct_order",
+          "text": "Agent runs init before add, and adds entities before catalog (dependency order)",
+          "type": "manual"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I already have a Brickend project. Can you add entity management to it and show me what's installed?",
+      "expected_output": "Agent should cd into the project, run brickend add entities, then brickend status. Should NOT run brickend init.",
+      "assertions": [
+        {
+          "name": "no_init",
+          "text": "Agent does NOT run brickend init (project already exists)",
+          "type": "manual"
+        },
+        {
+          "name": "adds_entities",
+          "text": "Agent runs brickend add entities",
+          "type": "manual"
+        },
+        {
+          "name": "shows_status",
+          "text": "Agent runs brickend status to show what's installed",
+          "type": "manual"
+        }
+      ],
+      "files": []
+    }
+  ]
+}

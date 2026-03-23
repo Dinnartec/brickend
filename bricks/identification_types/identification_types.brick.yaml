@@ -1,0 +1,45 @@
+brick:
+  name: identification_types
+  version: "1.0.0"
+  description: "Reference table for document identification types (Colombia + international)"
+
+requires: []
+config: {}
+
+schema:
+  table: identification_types
+  primary_key: slug
+  workspace_scoped: false
+  fields:
+    - name: slug
+      type: string
+      required: true
+    - name: name
+      type: string
+      required: true
+    - name: description
+      type: text
+      nullable: true
+    - name: format
+      type: text
+      nullable: true
+    - name: is_active
+      type: boolean
+      default: "true"
+
+access:
+  - role: admin
+    actions: [list, get, create, update, softDelete]
+  - role: member
+    actions: [list, get]
+  - role: viewer
+    actions: [list, get]
+
+api:
+  auth_required: true
+  endpoints:
+    - { method: GET,    path: /,    handler: list }
+    - { method: GET,    path: /:id, handler: get }
+    - { method: POST,   path: /,    handler: create,     status: 201 }
+    - { method: PATCH,  path: /:id, handler: update }
+    - { method: DELETE, path: /:id, handler: softDelete, status: 204 }
