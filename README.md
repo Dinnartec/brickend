@@ -512,6 +512,114 @@ Workspace management for multi-tenant projects. Auto-installed when using the `m
 
 Uses `db_schema: rbac` and `workspace_scoped: false` (the workspaces table manages workspaces, it's not scoped by them). Migration also creates the `rbac.workspace_users` table and a workspace-aware `has_permission()` function.
 
+### contacts
+
+Contact management for CRM — people linked to business entities.
+
+**Dependencies:** `auth >= 1.0.0`, `entities >= 1.0.0`
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/contacts` | List contacts (paginated, searchable) |
+| GET | `/contacts/:id` | Get contact |
+| POST | `/contacts` | Create contact |
+| PATCH | `/contacts/:id` | Update contact |
+| DELETE | `/contacts/:id` | Soft-delete contact |
+
+**Fields:** full_name, email, phone, position, notes, entity_id (optional link to business entity)
+
+### deals
+
+Deal pipeline management for CRM.
+
+**Dependencies:** `auth >= 1.0.0`, `contacts >= 1.0.0`
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/deals` | List deals (paginated, searchable) |
+| GET | `/deals/:id` | Get deal |
+| POST | `/deals` | Create deal |
+| PATCH | `/deals/:id` | Update deal |
+| DELETE | `/deals/:id` | Soft-delete deal |
+
+**Fields:** title, value (numeric), stage, description, contact_id (optional link to contact)
+
+### products
+
+Product listings for marketplace.
+
+**Dependencies:** `auth >= 1.0.0`
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/products` | List products (paginated, searchable) |
+| GET | `/products/:id` | Get product |
+| POST | `/products` | Create product |
+| PATCH | `/products/:id` | Update product |
+| DELETE | `/products/:id` | Soft-delete product |
+
+**Fields:** name, description, price (numeric), category, stock (numeric), is_available (boolean)
+
+### orders
+
+Order management for marketplace.
+
+**Dependencies:** `auth >= 1.0.0`, `products >= 1.0.0`
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/orders` | List orders (paginated) |
+| GET | `/orders/:id` | Get order |
+| POST | `/orders` | Create order |
+| PATCH | `/orders/:id` | Update order |
+| DELETE | `/orders/:id` | Soft-delete order |
+
+**Fields:** product_id, quantity (numeric), total_amount (numeric), status, shipping_address
+
+### properties
+
+Property listings for real estate.
+
+**Dependencies:** `auth >= 1.0.0`
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/properties` | List properties (paginated, searchable) |
+| GET | `/properties/:id` | Get property |
+| POST | `/properties` | Create property |
+| PATCH | `/properties/:id` | Update property |
+| DELETE | `/properties/:id` | Soft-delete property |
+
+**Fields:** title, property_type, address, city, price (numeric), bedrooms, bathrooms, area_sqft, description, is_available (boolean)
+
+### leads
+
+Lead management for real estate agents.
+
+**Dependencies:** `auth >= 1.0.0`
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/leads` | List leads (paginated, searchable) |
+| GET | `/leads/:id` | Get lead |
+| POST | `/leads` | Create lead |
+| PATCH | `/leads/:id` | Update lead |
+| DELETE | `/leads/:id` | Soft-delete lead |
+
+**Fields:** name, email, phone, interest, status, source
+
 ---
 
 ## Project Structure
@@ -866,6 +974,10 @@ Templates are predefined project configurations that set up roles, settings, and
 | `starter` | Minimal API with auth and user management | No | identification_types, auth, users |
 | `business` | Business management with entities and catalog | No | identification_types, auth, users, entities, catalog |
 | `multi-tenant` | Multi-tenant API with workspaces | Yes | identification_types, auth, users, workspaces |
+| `saas-admin` | Multi-tenant SaaS admin panel | Yes | identification_types, auth, users, workspaces, entities, catalog |
+| `crm` | Simple CRM with contacts and deals | No | identification_types, auth, users, entities, contacts, deals |
+| `marketplace` | Basic marketplace with products and orders | No | identification_types, auth, users, products, orders |
+| `real-estate` | Property listings and lead management | No | identification_types, auth, users, properties, leads |
 
 ### Template file format
 
@@ -912,6 +1024,8 @@ Brickend includes an MCP server so AI agents (Claude Code, Cursor, etc.) can bui
 | `brickend_init` | Initialize a new project (with optional template) |
 | `brickend_add` | Add a brick to the project |
 | `brickend_status` | Get current project state as JSON |
+| `brickend_list_templates` | List available templates with roles and settings |
+| `brickend_list_bricks` | List available bricks with dependencies and endpoints |
 
 ### Claude Code
 
@@ -948,7 +1062,7 @@ Add to `.cursor/mcp.json`:
 ```
 ┌──────────────────────────────────────────────────┐
 │               CLI (Commander.js)                  │
-│  init, add, lint                                  │
+│  init, add, status, lint                          │
 ├──────────────────────────────────────────────────┤
 │               Core Engine                         │
 │  ┌────────────┐ ┌────────────┐ ┌──────────────┐  │
@@ -960,12 +1074,12 @@ Add to `.cursor/mcp.json`:
 │  │   Loader   │ │  schema | service | api    │   │
 │  └────────────┘ └────────────────────────────┘   │
 ├──────────────────────────────────────────────────┤
-│             Brick Definitions                     │
-│  bricks/auth/auth.brick.yaml                      │
-│  bricks/users/users.brick.yaml                    │
-│  bricks/entities/entities.brick.yaml              │
-│  bricks/workspaces/workspaces.brick.yaml          │
-│  bricks/templates/starter.template.yaml           │
+│        Brick Definitions (14 bricks)              │
+│  Core: auth, users, entities, catalog, workspaces │
+│  CRM: contacts, deals                             │
+│  Marketplace: products, orders                    │
+│  Real Estate: properties, leads                   │
+│  Templates: 7 (starter → real-estate)             │
 ├──────────────────────────────────────────────────┤
 │          Generated Project (Supabase)             │
 │  Edge Functions + Migrations + State + API Docs   │
