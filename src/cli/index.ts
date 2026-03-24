@@ -36,8 +36,11 @@ program
 	.option("--template <template>", "Project template to use")
 	.option("--dry-run", "Preview what would be created without writing files")
 	.action(
-		async (projectName: string, options: { bricks?: string; template?: string; dryRun?: boolean }) => {
-		try {
+		async (
+			projectName: string,
+			options: { bricks?: string; template?: string; dryRun?: boolean },
+		) => {
+			try {
 				await initCommand(projectName, options);
 			} catch (error) {
 				handleError(error);

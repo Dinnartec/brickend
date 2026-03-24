@@ -24,7 +24,10 @@ interface AddOptions {
  * Accepts one or more brick names. If none provided, shows interactive multiselect.
  * Uses process.cwd() as the project directory.
  */
-export async function addCommand(brickNames: string[] = [], options: AddOptions = {}): Promise<void> {
+export async function addCommand(
+	brickNames: string[] = [],
+	options: AddOptions = {},
+): Promise<void> {
 	const projectDir = process.cwd();
 	const dryRun = options.dryRun ?? false;
 	const state = await loadState(projectDir);
@@ -77,7 +80,9 @@ export async function addCommand(brickNames: string[] = [], options: AddOptions 
 		return;
 	}
 
-	p.intro(chalk.bold(`brickend add ${brickNames.join(" ")}${dryRun ? chalk.dim("  [dry run]") : ""}`));
+	p.intro(
+		chalk.bold(`brickend add ${brickNames.join(" ")}${dryRun ? chalk.dim("  [dry run]") : ""}`),
+	);
 
 	// Resolve full install order including transitive dependencies
 	const installOrder = await getInstallOrder(brickNames, brickLoader.loadBrickSpec);

@@ -1,6 +1,6 @@
 import { cpSync, existsSync, mkdirSync } from "node:fs";
-import { join, dirname } from "node:path";
 import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

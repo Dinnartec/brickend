@@ -1,6 +1,6 @@
-import chalk from "chalk";
 import { createBrickLoader } from "@core/brick-loader.ts";
 import { createTemplateLoader } from "@core/template-loader.ts";
+import chalk from "chalk";
 
 export async function listCommand(options: {
 	json?: boolean;
@@ -61,7 +61,8 @@ export async function listCommand(options: {
 		console.log(`  ${chalk.green(b.name)} ${chalk.dim(`v${b.version}`)}`);
 		console.log(`  ${chalk.dim(b.description)}`);
 		if (b.requires.length > 0) console.log(`  ${chalk.dim("requires:")} ${b.requires.join(", ")}`);
-		if (b.endpoints.length > 0) console.log(`  ${chalk.dim("endpoints:")} ${b.endpoints.join("  ")}`);
+		if (b.endpoints.length > 0)
+			console.log(`  ${chalk.dim("endpoints:")} ${b.endpoints.join("  ")}`);
 		console.log();
 	}
 
