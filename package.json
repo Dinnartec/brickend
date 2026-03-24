@@ -5,13 +5,13 @@
 	"type": "module",
 	"license": "MIT",
 	"author": "Dinnartec",
-	"homepage": "https://github.com/dinnartec/brickend",
+	"homepage": "https://github.com/Dinnartec/brickend",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/dinnartec/brickend.git"
+		"url": "https://github.com/Dinnartec/brickend.git"
 	},
 	"bugs": {
-		"url": "https://github.com/dinnartec/brickend/issues"
+		"url": "https://github.com/Dinnartec/brickend/issues"
 	},
 	"keywords": [
 		"supabase",
