@@ -4,7 +4,7 @@ import chalk from "chalk";
 import { stringify as stringifyYaml } from "yaml";
 import type { BrickSpec } from "../core/brick-loader.ts";
 import { createBrickLoader } from "../core/brick-loader.ts";
-import { canInstall, checkDependencies, getInstallOrder } from "../core/compose.ts";
+import { getInstallOrder } from "../core/compose.ts";
 import { BrickendError } from "../core/errors.ts";
 import { writeFiles } from "../core/file-writer.ts";
 import { type GenerationContext, generateBrickFiles } from "../core/generator.ts";
@@ -16,22 +16,25 @@ import { startSpinner } from "./spinner.ts";
 
 interface AddOptions {
 	config?: string[];
+	dryRun?: boolean;
 }
 
 /**
- * CLI command handler for `brickend add [brick]`.
+ * CLI command handler for `brickend add [bricks...]`.
+ * Accepts one or more brick names. If none provided, shows interactive multiselect.
  * Uses process.cwd() as the project directory.
  */
-export async function addCommand(brickName?: string, options: AddOptions = {}): Promise<void> {
+export async function addCommand(brickNames: string[] = [], options: AddOptions = {}): Promise<void> {
 	const projectDir = process.cwd();
+	const dryRun = options.dryRun ?? false;
 	const state = await loadState(projectDir);
 	const brickLoader = createBrickLoader();
 
-	// If no brick name, show interactive selection
-	if (!brickName) {
+	// Interactive multiselect when no bricks provided
+	if (brickNames.length === 0) {
 		if (!process.stdout.isTTY) {
 			throw new BrickendError(
-				"No brick name provided. Usage: brickend add <brick>",
+				"No brick name provided. Usage: brickend add <brick> [brick...]",
 				"MISSING_ARGUMENT",
 			);
 		}
@@ -42,16 +45,16 @@ export async function addCommand(brickName?: string, options: AddOptions = {}): 
 			throw new BrickendError("No bricks available.", "NO_BRICKS");
 		}
 
-		const selected = await p.select({
-			message: "Select a brick to install:",
+		const selected = await p.multiselect({
+			message: "Select bricks to install:",
 			options: installable.map((spec) => ({
 				value: spec.brick.name,
-				label: state.bricks[spec.brick.name]
-					? `${chalk.dim("✓")} ${spec.brick.name} ${chalk.dim("(installed)")}`
-					: spec.brick.name,
-				hint: spec.brick.description,
-				disabled: !!state.bricks[spec.brick.name],
+				label: spec.brick.name,
+				hint: state.bricks[spec.brick.name]
+					? `${chalk.dim("already installed")}  —  ${spec.brick.description}`
+					: spec.brick.description,
 			})),
+			required: true,
 		});
 
 		if (p.isCancel(selected)) {
@@ -59,42 +62,50 @@ export async function addCommand(brickName?: string, options: AddOptions = {}): 
 			process.exit(0);
 		}
 
-		brickName = selected as string;
+		brickNames = selected as string[];
 	}
 
-	p.intro(chalk.bold(`brickend add ${brickName}`));
+	// Filter out already-installed bricks
+	const alreadyInstalled = brickNames.filter((name) => state.bricks[name]);
+	for (const name of alreadyInstalled) {
+		p.log.info(`${name} already installed, skipping`);
+	}
+	brickNames = brickNames.filter((name) => !state.bricks[name]);
 
-	// Handle dependencies interactively
-	const check = await canInstall(brickName, state, brickLoader.loadBrickSpec);
-	if (!check.ok) {
-		const spec = await brickLoader.loadBrickSpec(brickName);
-		const depResult = checkDependencies(spec, state.bricks);
+	if (brickNames.length === 0) {
+		p.outro("Nothing to install.");
+		return;
+	}
 
-		if (!depResult.satisfied && depResult.missing.length > 0) {
-			const missingNames = depResult.missing.map((m) => m.brick);
-			p.log.warn(`"${brickName}" requires: ${missingNames.join(", ")} (not installed)`);
+	p.intro(chalk.bold(`brickend add ${brickNames.join(" ")}${dryRun ? chalk.dim("  [dry run]") : ""}`));
 
-			if (process.stdout.isTTY) {
-				const shouldInstall = await p.confirm({
-					message: `Install ${missingNames.join(", ")} first?`,
-				});
+	// Resolve full install order including transitive dependencies
+	const installOrder = await getInstallOrder(brickNames, brickLoader.loadBrickSpec);
+	const toInstall = installOrder.filter((name) => !state.bricks[name]);
 
-				if (p.isCancel(shouldInstall) || !shouldInstall) {
-					p.cancel("Installation cancelled.");
-					process.exit(0);
-				}
+	// Warn about extra required bricks not explicitly requested (exclude extensions — auto-managed)
+	const extraCandidates = toInstall.filter((name) => !brickNames.includes(name));
+	const extraSpecs = await Promise.all(
+		extraCandidates.map((name) => brickLoader.loadBrickSpec(name)),
+	);
+	const extraDeps = extraCandidates.filter((_, i) => extraSpecs[i]?.brick.type !== "extension");
 
-				const installOrder = await getInstallOrder(missingNames, brickLoader.loadBrickSpec);
-				for (const dep of installOrder) {
-					if (!state.bricks[dep]) {
-						await installBrick(dep, projectDir, brickLoader, state);
-					}
-				}
-			} else {
-				throw new BrickendError(check.reason ?? "Unknown error", "DEPENDENCY_MISSING");
+	if (extraDeps.length > 0) {
+		p.log.warn(`Also requires: ${extraDeps.join(", ")} (not installed)`);
+
+		if (process.stdout.isTTY) {
+			const shouldInstall = await p.confirm({
+				message: `Install ${extraDeps.join(", ")} first?`,
+			});
+			if (p.isCancel(shouldInstall) || !shouldInstall) {
+				p.cancel("Installation cancelled.");
+				process.exit(0);
 			}
 		} else {
-			throw new BrickendError(check.reason ?? "Unknown error", "INSTALL_FAILED");
+			throw new BrickendError(
+				`Missing dependencies: ${extraDeps.join(", ")}`,
+				"DEPENDENCY_MISSING",
+			);
 		}
 	}
 
@@ -119,11 +130,30 @@ export async function addCommand(brickName?: string, options: AddOptions = {}): 
 		}
 	}
 
-	await installBrick(brickName, projectDir, brickLoader, state, configOverrides);
+	// Install in topological order
+	const allFiles: string[] = [];
+	for (const name of toInstall) {
+		const files = await installBrick(name, projectDir, brickLoader, state, configOverrides, {
+			dryRun,
+		});
+		allFiles.push(...files);
+	}
+
+	if (dryRun) {
+		const fileList = allFiles.map((f) => `    ${f}`).join("\n");
+		p.log.step(`Would generate ${allFiles.length} files:\n\n${fileList}\n`);
+		p.outro(chalk.dim("No files written  (dry run)"));
+		return;
+	}
+
 	const updatedState = await loadState(projectDir);
 	await writeApiDocs(projectDir, brickLoader);
 	await updateBrickendYaml(projectDir, updatedState);
-	p.outro("Run `supabase functions serve` to start the API.");
+	p.outro(
+		toInstall.length === 1
+			? "Run `supabase functions serve` to start the API."
+			: `${toInstall.length} bricks installed. Run \`supabase functions serve\` to start the API.`,
+	);
 }
 
 /**
@@ -138,8 +168,10 @@ export async function installBrick(
 	brickLoader: ReturnType<typeof createBrickLoader>,
 	state?: BrickendState,
 	configOverrides?: Record<string, unknown>,
-	parentBrickName?: string,
-): Promise<void> {
+	opts?: { parentBrickName?: string; dryRun?: boolean },
+): Promise<string[]> {
+	const { parentBrickName, dryRun } = opts ?? {};
+
 	// Load state if not provided
 	if (!state) {
 		state = await loadState(projectDir);
@@ -148,7 +180,7 @@ export async function installBrick(
 	// Skip if already installed
 	if (state.bricks[brickName]) {
 		if (process.stdout.isTTY) p.log.info(`${brickName} already installed, skipping`);
-		return;
+		return [];
 	}
 
 	// Load brick spec
@@ -163,7 +195,7 @@ export async function installBrick(
 		);
 		for (const dep of installOrder) {
 			if (!state.bricks[dep]) {
-				await installBrick(dep, projectDir, brickLoader, state);
+				await installBrick(dep, projectDir, brickLoader, state, undefined, { dryRun });
 			}
 		}
 	}
@@ -171,7 +203,10 @@ export async function installBrick(
 	// Auto-install extensions with this brick as their parent
 	for (const ext of spec.extensions) {
 		if (!state.bricks[ext.brick]) {
-			await installBrick(ext.brick, projectDir, brickLoader, state, undefined, brickName);
+			await installBrick(ext.brick, projectDir, brickLoader, state, undefined, {
+				parentBrickName: brickName,
+				dryRun,
+			});
 		}
 	}
 
@@ -198,36 +233,47 @@ export async function installBrick(
 		state,
 		existingBricks: Object.keys(state.bricks),
 		requiredBrickSpecs,
+		dryRun,
 	};
 
 	// Generate and write files
 	const spin = process.stdout.isTTY
-		? startSpinner(`Generating ${brickName} v${spec.brick.version}`)
+		? startSpinner(
+				dryRun
+					? `Simulating ${brickName} v${spec.brick.version}`
+					: `Generating ${brickName} v${spec.brick.version}`,
+			)
 		: null;
 
 	const generatedFiles = await generateBrickFiles(context);
-	const writtenPaths = await writeFiles(projectDir, generatedFiles);
+	const writtenPaths = await writeFiles(projectDir, generatedFiles, { dryRun });
 
-	// Expose non-public db_schema in config.toml [api] schemas
-	const dbSchema = spec.schema?.db_schema;
-	if (dbSchema && dbSchema !== "public") {
-		await exposeSchemaInConfig(projectDir, dbSchema);
+	if (!dryRun) {
+		// Expose non-public db_schema in config.toml [api] schemas
+		const dbSchema = spec.schema?.db_schema;
+		if (dbSchema && dbSchema !== "public") {
+			await exposeSchemaInConfig(projectDir, dbSchema);
+		}
+
+		// Write brick manifest — extensions go inside the parent's folder
+		const brickYamlContent = await brickLoader.loadBrickYamlContent(brickName);
+		const manifestFolder = parentBrickName ?? brickName;
+		const brickManifestPath = join(
+			projectDir,
+			"brickend",
+			manifestFolder,
+			`${brickName}.bricks.yaml`,
+		);
+		await Bun.write(brickManifestPath, brickYamlContent);
 	}
 
-	// Write brick manifest — extensions go inside the parent's folder
-	const brickYamlContent = await brickLoader.loadBrickYamlContent(brickName);
-	const manifestFolder = parentBrickName ?? brickName;
-	const brickManifestPath = join(
-		projectDir,
-		"brickend",
-		manifestFolder,
-		`${brickName}.bricks.yaml`,
+	spin?.stop(
+		dryRun
+			? `${brickName} v${spec.brick.version}  would generate ${writtenPaths.length} files`
+			: `${brickName} v${spec.brick.version}  (${writtenPaths.length} files)`,
 	);
-	await Bun.write(brickManifestPath, brickYamlContent);
 
-	spin?.stop(`${brickName} v${spec.brick.version}  (${writtenPaths.length} files)`);
-
-	// Update state
+	// Always update in-memory state so multi-brick loops (incl. dry-run) see correct install status
 	state.bricks[brickName] = {
 		version: spec.brick.version,
 		type: spec.brick.type ?? "brick",
@@ -242,7 +288,11 @@ export async function installBrick(
 		}
 	}
 
-	await saveState(projectDir, state);
+	if (!dryRun) {
+		await saveState(projectDir, state);
+	}
+
+	return writtenPaths;
 }
 
 /**

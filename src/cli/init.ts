@@ -41,10 +41,12 @@ const BASELINE_BRICKS = ["identification_types", "auth", "users"];
 interface InitOptions {
 	bricks?: string;
 	template?: string;
+	dryRun?: boolean;
 }
 
 export async function initCommand(projectName: string, options: InitOptions = {}): Promise<void> {
-	p.intro(chalk.bold(`brickend init ${projectName}`));
+	const dryRun = options.dryRun ?? false;
+	p.intro(chalk.bold(`brickend init ${projectName}${dryRun ? chalk.dim("  [dry run]") : ""}`));
 
 	// 1. Validate project name
 	if (!PROJECT_NAME_REGEX.test(projectName)) {
@@ -62,8 +64,10 @@ export async function initCommand(projectName: string, options: InitOptions = {}
 		);
 	}
 
-	// 2. Check prerequisites
-	await checkPrerequisites();
+	// 2. Check prerequisites (skip in dry-run — no tools will be invoked)
+	if (!dryRun) {
+		await checkPrerequisites();
+	}
 
 	// 3. Template selection (before any file creation)
 	if (options.template && options.bricks) {
@@ -124,6 +128,37 @@ export async function initCommand(projectName: string, options: InitOptions = {}
 
 	const resolvedSettings: Record<string, unknown> = selectedTemplate?.settings ?? {};
 	const templateName: string | undefined = selectedTemplate?.template.name;
+	const multiTenant = resolvedSettings.multi_tenant === true;
+
+	// 4. Dry-run: print plan and exit early
+	if (dryRun) {
+		let baselineBricks: string[];
+		if (selectedTemplate) {
+			baselineBricks = selectedTemplate.baseline.map((b) => b.brick);
+			if (multiTenant && !baselineBricks.includes("workspaces")) baselineBricks.push("workspaces");
+		} else {
+			baselineBricks = multiTenant ? [...BASELINE_BRICKS, "workspaces"] : [...BASELINE_BRICKS];
+		}
+
+		const roleNames = resolvedRoles.map((r) => (r.is_default ? `${r.name}*` : r.name)).join(", ");
+		const lines = [
+			`  Template:     ${templateName ?? "custom"}`,
+			`  Roles:        ${roleNames}  (* = default)`,
+			`  Multi-tenant: ${multiTenant ? "yes" : "no"}`,
+			"",
+			"  Would run:",
+			"    git init",
+			"    supabase init",
+			"    Write 9 shared/config files (_shared/core/, brickend.yaml, .env.example, .gitignore)",
+			"    Create RBAC migration",
+			...baselineBricks.map((b) => `    Install brick: ${b}`),
+			"    Write README.md, scripts/deploy.sh, openapi.yaml",
+			"    supabase start",
+		];
+		console.log(lines.join("\n"));
+		p.outro(chalk.dim("No files created  (dry run)"));
+		return;
+	}
 
 	// 4. Create project directory and initialize tools
 	const spin = startSpinner("Creating project directory...");
@@ -173,9 +208,6 @@ export async function initCommand(projectName: string, options: InitOptions = {}
 	for (const dir of sharedDirs) {
 		await mkdir(join(projectDir, dir), { recursive: true });
 	}
-
-	// Detect multi-tenant mode from settings
-	const multiTenant = resolvedSettings.multi_tenant === true;
 
 	// 5. Generate shared core files
 	const sharedFiles: GeneratedFile[] = [

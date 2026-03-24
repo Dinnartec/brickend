@@ -12,14 +12,21 @@ Brickend scaffolds software projects incrementally using composable modules call
 
 ## Discover Available Templates and Bricks
 
-Before creating or modifying a project, discover what's available dynamically:
+Before creating or modifying a project, discover what's available dynamically.
 
-1. **List templates:** Call the `brickend_list_templates` MCP tool to get all available templates with their roles, settings, baseline bricks, and optional bricks.
-2. **List bricks:** Call the `brickend_list_bricks` MCP tool to get all available bricks with their descriptions, dependencies, types, and endpoints.
+**If the Brickend MCP server is configured** (preferred — no subprocess):
+1. Call `brickend_list_templates` to get all templates
+2. Call `brickend_list_bricks` to get all bricks
 
-Use this information to recommend the right template and bricks based on the user's needs. Templates with `multi_tenant: true` include workspace isolation. Bricks with `type: "extension"` are auto-installed by their parent brick.
+**If MCP is not available**, run:
+```bash
+brickend list --json
+```
+This outputs `{ templates: [...], bricks: [...] }` in the same format as the MCP tools.
 
-**When to call these tools:**
+Use the discovery output to recommend the right template and bricks. Templates with `multi_tenant: true` include workspace isolation. Bricks with `type: "extension"` are auto-installed by their parent — never suggest them directly to users.
+
+**When to discover:**
 - Before suggesting a template to the user
 - Before recommending which bricks to add
 - When the user asks what's available
