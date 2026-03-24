@@ -26,8 +26,8 @@
 		"multi-tenant"
 	],
 	"bin": {
-		"brickend": "./dist/cli/index.js",
-		"brickend-mcp": "./dist/mcp/index.js"
+		"brickend": "dist/cli/index.js",
+		"brickend-mcp": "dist/mcp/index.js"
 	},
 	"main": "./dist/cli/index.js",
 	"files": [
@@ -39,7 +39,7 @@
 		"README.md"
 	],
 	"scripts": {
-		"build": "bun build src/cli/index.ts --outdir dist/cli --target bun && bun build src/mcp/index.ts --outdir dist/mcp --target bun",
+		"build": "bun build src/cli/index.ts --outdir dist/cli --target bun && bun build src/mcp/index.ts --outdir dist/mcp --target bun && bun run scripts/fix-shebang.js",
 		"dev": "bun --watch src/cli/index.ts",
 		"test": "bun test",
 		"lint": "bunx biome check src/ bricks/ tests/ scripts/ skills/",
