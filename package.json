@@ -33,6 +33,8 @@
 	"files": [
 		"dist/",
 		"bricks/",
+		"skills/",
+		"scripts/install-skill.js",
 		"LICENSE",
 		"README.md"
 	],
@@ -43,7 +45,8 @@
 		"lint": "bunx biome check .",
 		"lint:fix": "bunx biome check --fix .",
 		"prepublishOnly": "bun run lint && bun test && bun run build",
-		"smoke-test": "bash scripts/smoke-test.sh"
+		"smoke-test": "bash scripts/smoke-test.sh",
+		"postinstall": "node scripts/install-skill.js"
 	},
 	"dependencies": {
 		"@clack/prompts": "1.1.0",

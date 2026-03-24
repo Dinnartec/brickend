@@ -14,6 +14,7 @@ export interface GenerationContext {
 	existingBricks: string[];
 	projectPath?: string;
 	requiredBrickSpecs?: BrickSpec[];
+	dryRun?: boolean;
 }
 
 type BrickRegistry = Record<string, { table: string; pk: string; db_schema?: string }>;
@@ -1413,7 +1414,7 @@ async function generateDatabaseFiles(
 	const sql = generateDatabaseSchema(schema, brickName, registry, access, multiTenant);
 	const migrationName = brickName;
 
-	if (context.projectPath) {
+	if (context.projectPath && !context.dryRun) {
 		const { runSupabase } = await import("./supabase.ts");
 
 		await waitForUniqueSecond(context.projectPath);

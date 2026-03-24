@@ -12,12 +12,12 @@ export interface GeneratedFile {
 export async function writeFiles(
 	projectDir: string,
 	files: GeneratedFile[],
-	options?: { overwrite?: boolean },
+	options?: { overwrite?: boolean; dryRun?: boolean },
 ): Promise<string[]> {
 	const written: string[] = [];
 
 	for (const file of files) {
-		if (file.skipWrite) {
+		if (file.skipWrite || options?.dryRun) {
 			written.push(file.path);
 			continue;
 		}

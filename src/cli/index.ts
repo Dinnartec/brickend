@@ -5,6 +5,7 @@ import { BrickendError } from "../core/errors.ts";
 import { addCommand } from "./add.ts";
 import { initCommand } from "./init.ts";
 import { lintCommand } from "./lint.ts";
+import { listCommand } from "./list.ts";
 import { statusCommand } from "./status.ts";
 
 function handleError(error: unknown): void {
@@ -33,22 +34,26 @@ program
 	.description("Initialize a new Brickend project")
 	.option("--bricks <bricks>", "Comma-separated list of bricks to install")
 	.option("--template <template>", "Project template to use")
-	.action(async (projectName: string, options: { bricks?: string; template?: string }) => {
+	.option("--dry-run", "Preview what would be created without writing files")
+	.action(
+		async (projectName: string, options: { bricks?: string; template?: string; dryRun?: boolean }) => {
 		try {
-			await initCommand(projectName, options);
-		} catch (error) {
-			handleError(error);
-			process.exit(1);
-		}
-	});
+				await initCommand(projectName, options);
+			} catch (error) {
+				handleError(error);
+				process.exit(1);
+			}
+		},
+	);
 
 program
-	.command("add [brick]")
-	.description("Add a brick to the project")
+	.command("add [bricks...]")
+	.description("Add one or more bricks to the project")
 	.option("--config <config...>", "Brick configuration as key=value pairs")
-	.action(async (brick?: string, options?: { config?: string[] }) => {
+	.option("--dry-run", "Preview what would be generated without writing files")
+	.action(async (bricks: string[], options?: { config?: string[]; dryRun?: boolean }) => {
 		try {
-			await addCommand(brick, options);
+			await addCommand(bricks, options);
 		} catch (error) {
 			handleError(error);
 			process.exit(1);
@@ -73,6 +78,21 @@ program
 	.action(async (path?: string) => {
 		try {
 			await lintCommand(path);
+		} catch (error) {
+			handleError(error);
+			process.exit(1);
+		}
+	});
+
+program
+	.command("list")
+	.description("List available templates and bricks")
+	.option("--templates", "Show only templates")
+	.option("--bricks", "Show only bricks")
+	.option("--json", "Output as JSON")
+	.action(async (options: { json?: boolean; templates?: boolean; bricks?: boolean }) => {
+		try {
+			await listCommand(options);
 		} catch (error) {
 			handleError(error);
 			process.exit(1);
