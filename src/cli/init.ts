@@ -1,5 +1,5 @@
 import { mkdir, readdir as readdirFs } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import * as p from "@clack/prompts";
 import chalk from "chalk";
 import { createBrickLoader } from "../core/brick-loader.ts";
@@ -45,22 +45,39 @@ interface InitOptions {
 	dryRun?: boolean;
 }
 
-export async function initCommand(projectName: string, options: InitOptions = {}): Promise<void> {
+export async function initCommand(rawName: string, options: InitOptions = {}): Promise<void> {
 	const dryRun = options.dryRun ?? false;
-	p.intro(chalk.bold(`brickend init ${projectName}${dryRun ? chalk.dim("  [dry run]") : ""}`));
+	const initInPlace = rawName === ".";
 
-	// 1. Validate project name
-	if (!PROJECT_NAME_REGEX.test(projectName)) {
-		throw new BrickendError(
-			`Invalid project name "${projectName}". Use lowercase alphanumeric characters and hyphens.`,
-			"INVALID_NAME",
-		);
+	// 1. Resolve project directory and name
+	let projectDir: string;
+	let projectName: string;
+
+	if (initInPlace) {
+		projectDir = process.cwd();
+		projectName = basename(projectDir);
+		if (!PROJECT_NAME_REGEX.test(projectName)) {
+			throw new BrickendError(
+				`Current directory name "${projectName}" is not a valid project name. Rename it to use lowercase alphanumeric characters and hyphens, or run \`brickend init <name>\` to create a subdirectory.`,
+				"INVALID_NAME",
+			);
+		}
+	} else {
+		if (!PROJECT_NAME_REGEX.test(rawName)) {
+			throw new BrickendError(
+				`Invalid project name "${rawName}". Use lowercase alphanumeric characters and hyphens.`,
+				"INVALID_NAME",
+			);
+		}
+		projectName = rawName;
+		projectDir = join(process.cwd(), projectName);
 	}
 
-	const projectDir = join(process.cwd(), projectName);
+	p.intro(chalk.bold(`brickend init ${projectName}${dryRun ? chalk.dim("  [dry run]") : ""}`));
+
 	if (await Bun.file(join(projectDir, "brickend.state.json")).exists()) {
 		throw new BrickendError(
-			`Directory "${projectName}" already contains a Brickend project.`,
+			`${initInPlace ? "Current directory" : `Directory "${projectName}"`} already contains a Brickend project.`,
 			"ALREADY_EXISTS",
 		);
 	}
@@ -163,7 +180,9 @@ export async function initCommand(projectName: string, options: InitOptions = {}
 
 	// 4. Create project directory and initialize tools
 	const spin = startSpinner("Creating project directory...");
-	await mkdir(projectDir, { recursive: true });
+	if (!initInPlace) {
+		await mkdir(projectDir, { recursive: true });
+	}
 
 	spin.update("Initializing git...");
 	try {
@@ -405,10 +424,12 @@ export async function initCommand(projectName: string, options: InitOptions = {}
 	}
 
 	// 12. Output summary
-	p.note(
-		[`cd ${projectName}`, "supabase functions serve    # Start Edge Functions locally"].join("\n"),
-		"Next steps",
-	);
+	const nextSteps = initInPlace
+		? "supabase functions serve    # Start Edge Functions locally"
+		: [`cd ${projectName}`, "supabase functions serve    # Start Edge Functions locally"].join(
+				"\n",
+			);
+	p.note(nextSteps, "Next steps");
 
 	p.outro(chalk.green("Project initialized successfully!"));
 }

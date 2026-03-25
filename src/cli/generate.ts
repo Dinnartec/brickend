@@ -37,14 +37,29 @@ export async function generateCommand(
 		reset: resetDb = true,
 	} = options;
 
-	// 1. Validate brick is installed
-	const installed = state.bricks[brickName];
+	// 1. Validate brick is installed (auto-register if manifest exists but not in state)
+	let installed = state.bricks[brickName];
 	if (!installed) {
-		throw new BrickendError(
-			`Brick "${brickName}" is not installed. Use \`brickend add ${brickName}\` first.`,
-			"BRICK_NOT_INSTALLED",
-			{ brick: brickName, installed: Object.keys(state.bricks) },
-		);
+		try {
+			const spec = await loadManifestSpec(projectDir, brickName);
+			p.log.warn(`Brick "${brickName}" has a manifest but is not in state. Auto-registering...`);
+			state.bricks[brickName] = {
+				version: spec.brick.version,
+				type: spec.brick.type ?? "brick",
+				installed_at: new Date().toISOString(),
+				config: {},
+				files: [],
+				fileHashes: {},
+			};
+			await saveState(projectDir, state);
+			installed = state.bricks[brickName] as NonNullable<typeof installed>;
+		} catch {
+			throw new BrickendError(
+				`Brick "${brickName}" is not installed. Use \`brickend create-brick ${brickName}\` for custom bricks, or \`brickend add ${brickName}\` for catalog bricks.`,
+				"BRICK_NOT_INSTALLED",
+				{ brick: brickName, installed: Object.keys(state.bricks) },
+			);
+		}
 	}
 
 	// 2. Load NEW spec from the project manifest (user-edited)
@@ -70,7 +85,8 @@ export async function generateCommand(
 	// 4. Compute diff
 	const diff: BrickSpecDiff | null = oldSpec ? diffBrickSpecs(oldSpec, newSpec) : null;
 
-	if (diff && isDiffEmpty(diff) && !force) {
+	const isFirstGeneration = installed.files.length === 0;
+	if (diff && isDiffEmpty(diff) && !force && !isFirstGeneration) {
 		p.log.info(`No changes detected in ${brickName} manifest. Use --force to regenerate anyway.`);
 		return;
 	}
@@ -78,7 +94,14 @@ export async function generateCommand(
 	// 5. Build generation context
 	const brickLoader = createBrickLoader();
 	const requiredBrickSpecs = await Promise.all(
-		newSpec.requires.map((dep) => brickLoader.loadBrickSpec(dep.brick)),
+		newSpec.requires.map(async (dep) => {
+			try {
+				return await brickLoader.loadBrickSpec(dep.brick);
+			} catch {
+				// Fallback: load from project manifest (custom bricks)
+				return await loadManifestSpec(projectDir, dep.brick);
+			}
+		}),
 	);
 
 	const context: GenerationContext = {

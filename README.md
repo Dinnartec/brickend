@@ -19,6 +19,7 @@ With Brickend:     AI agent → operates on Brickend → consistent, incremental
 - [Commands](#commands)
   - [brickend init](#brickend-init)
   - [brickend add](#brickend-add)
+  - [brickend create-brick](#brickend-create-brick)
   - [brickend status](#brickend-status)
 - [Available Bricks](#available-bricks)
   - [identification_types](#identification_types)
@@ -124,11 +125,11 @@ Brickend checks for these tools during `brickend init` and will attempt to insta
 Initialize a new Brickend API project.
 
 ```bash
-brickend init <project-name> [options]
+brickend init [project-name] [options]
 ```
 
 **Arguments:**
-- `<project-name>` — Name for the project (lowercase alphanumeric + hyphens)
+- `[project-name]` — Name for the project (lowercase alphanumeric + hyphens). Use `.` or omit to initialize in the current directory (derives name from folder).
 
 **Options:**
 - `--bricks <bricks>` — Comma-separated list of bricks to install
@@ -157,6 +158,13 @@ brickend init my-api
 
 # Use a specific template
 brickend init my-api --template starter
+
+# Initialize in current directory (derives name from folder)
+mkdir my-api && cd my-api
+brickend init .
+
+# Omit name entirely — same as init .
+brickend init --template starter
 
 # Multi-tenant project with workspaces
 brickend init my-api --template multi-tenant
@@ -289,6 +297,55 @@ brickend add users
 
   ✓ users v1.0.0 installed
 ```
+
+---
+
+### `brickend create-brick`
+
+Create a custom brick definition in the project. Generates a `.bricks.yaml` manifest and registers it in project state, ready for `brickend generate`.
+
+```bash
+brickend create-brick <name> [options]
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--table <name>` | Table name (default: brick name) |
+| `--primary-key <name>` | PK column name (default: singularized table + `_id`) |
+| `--fields <defs>` | Field definitions: `name:type[:required][:nullable][:ref=brick]` |
+| `--owner` | Add `owner_id` referencing auth (with-owner create mode) |
+| `--endpoints <list>` | Handlers: `list,get,create,update,softDelete` (default: all) |
+| `--auth-required` / `--no-auth-required` | Require authentication (default: true) |
+| `--search-field <field>` | Field for `?q=` search |
+| `--requires <bricks>` | Comma-separated brick dependencies |
+| `--description <desc>` | Brick description |
+| `--version <ver>` | Version (default: 1.0.0) |
+| `--dry-run` | Preview YAML without writing |
+| `--no-generate` | Create manifest only, skip code generation |
+| `--no-workspace` | Opt out of workspace scoping in multi-tenant projects |
+
+**Field definition format:** `name:type[:required][:nullable][:ref=brick]`
+
+Supported types: `string`, `text`, `email`, `uuid`, `boolean`, `numeric`, `url`
+
+**Examples:**
+
+```bash
+# Full specification (AI-friendly one-liner)
+brickend create-brick invoices \
+  --fields "title:string:required,amount:numeric:required,status:string:required" \
+  --owner --search-field title --description "Invoice management"
+
+# Scaffold mode — generates minimal YAML for manual editing
+brickend create-brick invoices
+
+# Preview without writing
+brickend create-brick invoices --fields "title:string:required" --dry-run
+```
+
+By default, code is generated automatically (schema, services, entrypoint, migration). Use `--no-generate` to create the manifest only. Custom bricks can reference other custom bricks via `ref=<name>` in field definitions. In multi-tenant projects, bricks are automatically workspace-scoped (opt out with `--no-workspace`). OpenAPI docs are updated automatically.
 
 ---
 
@@ -846,7 +903,23 @@ All bricks use soft delete by default:
 
 ## Creating Custom Bricks
 
-Bricks are defined by a `<name>.brick.yaml` file in the `bricks/<name>/` directory. The format is declarative — you define `schema`, `api`, and `access` sections, and the generator produces all code.
+### Using the CLI (recommended)
+
+```bash
+# Create a custom brick with fields and owner tracking:
+brickend create-brick invoices \
+  --fields "title:string:required,amount:numeric:required,due_date:string,status:string:required" \
+  --owner --search-field title
+
+# Generate the code, services, and migration:
+brickend generate invoices
+```
+
+The `create-brick` command reads your project's roles and settings to pre-fill RBAC access rules. See [`brickend create-brick`](#brickend-create-brick) for all options.
+
+### Manual YAML
+
+Bricks are defined by a `<name>.bricks.yaml` file in `brickend/<name>/`. The format is declarative — you define `schema`, `api`, and `access` sections, and the generator produces all code.
 
 ### brick.yaml structure
 
