@@ -112,6 +112,61 @@ async function listAvailableBricks(bricksDir: string): Promise<BrickSpec[]> {
 	return specs;
 }
 
+/** Load a brick spec from the project's installed manifest directory. */
+export async function loadManifestSpec(projectDir: string, brickName: string): Promise<BrickSpec> {
+	const brickendDir = join(projectDir, "brickend");
+	const primaryPath = join(brickendDir, brickName, `${brickName}.bricks.yaml`);
+
+	let yamlPath: string | null = null;
+
+	if (await Bun.file(primaryPath).exists()) {
+		yamlPath = primaryPath;
+	} else {
+		// Scan for extension bricks in parent folders
+		try {
+			const allFiles = (await readdir(brickendDir, { recursive: true })) as string[];
+			const target = `${brickName}.bricks.yaml`;
+			const found = allFiles.find(
+				(f) => f === target || f.endsWith(`/${target}`) || f.endsWith(`\\${target}`),
+			);
+			if (found) yamlPath = join(brickendDir, found);
+		} catch {
+			// brickend dir may not exist
+		}
+	}
+
+	if (!yamlPath) {
+		throw new BrickendError(
+			`Manifest for brick "${brickName}" not found in ${brickendDir}`,
+			"MANIFEST_NOT_FOUND",
+			{ brick: brickName, brickendDir },
+		);
+	}
+
+	const content = await Bun.file(yamlPath).text();
+	let parsed: unknown;
+	try {
+		parsed = parseYaml(content);
+	} catch (e) {
+		throw new BrickendError(
+			`Invalid YAML in manifest "${brickName}": ${e instanceof Error ? e.message : String(e)}`,
+			"MANIFEST_INVALID",
+			{ brick: brickName, path: yamlPath },
+		);
+	}
+
+	const result = BrickSpecSchema.safeParse(parsed);
+	if (!result.success) {
+		throw new BrickendError(
+			`Manifest "${brickName}" validation failed: ${result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join(", ")}`,
+			"MANIFEST_INVALID",
+			{ brick: brickName, issues: result.error.issues },
+		);
+	}
+
+	return result.data;
+}
+
 export function createBrickLoader(bricksDir: string = DEFAULT_BRICKS_DIR) {
 	return {
 		loadBrickSpec: (name: string) => loadBrickSpec(bricksDir, name),

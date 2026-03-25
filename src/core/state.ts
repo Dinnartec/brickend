@@ -8,6 +8,8 @@ const InstalledBrickSchema = z.object({
 	installed_at: z.string().datetime(),
 	config: z.record(z.unknown()),
 	files: z.array(z.string()),
+	fileHashes: z.record(z.string()).optional().default({}),
+	specSnapshot: z.record(z.unknown()).optional(),
 });
 
 const RoleSchema = z.object({

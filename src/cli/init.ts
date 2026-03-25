@@ -17,6 +17,7 @@ import { createTemplateLoader } from "../core/template-loader.ts";
 import type { TemplateSpec } from "../core/template-spec.ts";
 import type { RoleConfig } from "../core/templates/index.ts";
 import {
+	agentsTemplate,
 	authCoreTemplate,
 	brickendYamlTemplate,
 	corsTemplate,
@@ -377,9 +378,17 @@ export async function initCommand(projectName: string, options: InitOptions = {}
 	const finalState = await loadState(projectDir);
 	const readmeContent = readmeTemplate(projectName, Object.keys(finalState.bricks));
 	await Bun.write(join(projectDir, "README.md"), readmeContent);
+	await Bun.write(
+		join(projectDir, "AGENTS.md"),
+		agentsTemplate(
+			projectName,
+			Object.keys(finalState.bricks),
+			!!finalState.settings?.multi_tenant,
+		),
+	);
 	await mkdir(join(projectDir, "scripts"), { recursive: true });
 	await Bun.write(join(projectDir, "scripts/deploy.sh"), deployScriptTemplate(projectName));
-	p.log.success("README and deploy script generated");
+	p.log.success("README, AGENTS.md and deploy script generated");
 	await writeApiDocs(projectDir, brickLoader);
 	await updateBrickendYaml(projectDir, finalState);
 
