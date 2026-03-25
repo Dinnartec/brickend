@@ -1,6 +1,6 @@
 {
 	"name": "brickend",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Build software brick by brick — composable, production-ready modules with persistent state for AI agents and humans",
 	"type": "module",
 	"license": "MIT",
