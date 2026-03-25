@@ -77,50 +77,32 @@ function makeSpec(overrides: Partial<BrickSpec> = {}): BrickSpec {
 describe("generateAlterMigrationSql", () => {
 	it("generates ADD COLUMN for new fields", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
 		const newSpec = makeSpec({
-			schema: {
-				...oldSpec.schema!,
-				fields: [
-					...oldSpec.schema!.fields,
-					{ name: "description", type: "text" },
-				],
-			},
+			schema: { ...s, fields: [...(s?.fields ?? []), { name: "description", type: "text" }] },
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
-		const sql = generateAlterMigrationSql(
-			newSpec.schema!,
-			"items",
-			{},
-			diff,
-			newSpec.access,
-			false,
-		);
+		const sql = generateAlterMigrationSql(newSpec.schema, "items", {}, diff, newSpec.access, false);
 
 		expect(sql).toContain("ALTER TABLE items ADD COLUMN description text;");
 	});
 
 	it("generates NOT NULL for required fields", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
 		const newSpec = makeSpec({
 			schema: {
-				...oldSpec.schema!,
+				...s,
 				fields: [
-					...oldSpec.schema!.fields,
+					...(s?.fields ?? []),
 					{ name: "code", type: "string", required: true, default: "'UNKNOWN'" },
 				],
 			},
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
-		const sql = generateAlterMigrationSql(
-			newSpec.schema!,
-			"items",
-			{},
-			diff,
-			newSpec.access,
-			false,
-		);
+		const sql = generateAlterMigrationSql(newSpec.schema, "items", {}, diff, newSpec.access, false);
 
 		expect(sql).toContain("NOT NULL");
 		expect(sql).toContain("DEFAULT 'UNKNOWN'");
@@ -128,72 +110,50 @@ describe("generateAlterMigrationSql", () => {
 
 	it("emits WARNING for required fields without default", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
 		const newSpec = makeSpec({
 			schema: {
-				...oldSpec.schema!,
-				fields: [
-					...oldSpec.schema!.fields,
-					{ name: "code", type: "string", required: true },
-				],
+				...s,
+				fields: [...(s?.fields ?? []), { name: "code", type: "string", required: true }],
 			},
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
-		const sql = generateAlterMigrationSql(
-			newSpec.schema!,
-			"items",
-			{},
-			diff,
-			newSpec.access,
-			false,
-		);
+		const sql = generateAlterMigrationSql(newSpec.schema, "items", {}, diff, newSpec.access, false);
 
 		expect(sql).toContain("WARNING");
 	});
 
 	it("generates DROP COLUMN for removed fields", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
+		const firstField = s?.fields[0];
 		const newSpec = makeSpec({
-			schema: {
-				...oldSpec.schema!,
-				fields: [oldSpec.schema!.fields[0]!],
-			},
+			schema: { ...s, fields: firstField ? [firstField] : [] },
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
-		const sql = generateAlterMigrationSql(
-			newSpec.schema!,
-			"items",
-			{},
-			diff,
-			newSpec.access,
-			false,
-		);
+		const sql = generateAlterMigrationSql(newSpec.schema, "items", {}, diff, newSpec.access, false);
 
 		expect(sql).toContain("DROP COLUMN IF EXISTS name");
 	});
 
 	it("emits TODO comment for changed field types", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
+		const firstField = s?.fields[0];
 		const newSpec = makeSpec({
 			schema: {
-				...oldSpec.schema!,
+				...s,
 				fields: [
-					oldSpec.schema!.fields[0]!,
+					...(firstField ? [firstField] : []),
 					{ name: "name", type: "text", required: true },
 				],
 			},
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
-		const sql = generateAlterMigrationSql(
-			newSpec.schema!,
-			"items",
-			{},
-			diff,
-			newSpec.access,
-			false,
-		);
+		const sql = generateAlterMigrationSql(newSpec.schema, "items", {}, diff, newSpec.access, false);
 
 		expect(sql).toContain("TODO");
 		expect(sql).toContain("name");
@@ -208,14 +168,7 @@ describe("generateAlterMigrationSql", () => {
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
-		const sql = generateAlterMigrationSql(
-			newSpec.schema!,
-			"items",
-			{},
-			diff,
-			newSpec.access,
-			false,
-		);
+		const sql = generateAlterMigrationSql(newSpec.schema, "items", {}, diff, newSpec.access, false);
 
 		expect(sql).toContain("DELETE FROM rbac.permissions WHERE resource = 'items'");
 		expect(sql).toContain("INSERT INTO rbac.permissions");
@@ -245,57 +198,37 @@ describe("generateAlterMigrationSql", () => {
 	});
 
 	it("uses qualified table name for non-public schema", () => {
+		const base = makeSpec();
+		const s = base.schema;
 		const oldSpec = makeSpec({
-			schema: {
-				...makeSpec().schema!,
-				db_schema: "catalog",
-			},
+			schema: { ...s, db_schema: "catalog" },
 		});
 		const newSpec = makeSpec({
 			schema: {
-				...makeSpec().schema!,
+				...s,
 				db_schema: "catalog",
-				fields: [
-					...makeSpec().schema!.fields,
-					{ name: "sku", type: "string" },
-				],
+				fields: [...(s?.fields ?? []), { name: "sku", type: "string" }],
 			},
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
-		const sql = generateAlterMigrationSql(
-			newSpec.schema!,
-			"items",
-			{},
-			diff,
-			[],
-			false,
-		);
+		const sql = generateAlterMigrationSql(newSpec.schema, "items", {}, diff, [], false);
 
 		expect(sql).toContain("ALTER TABLE catalog.items ADD COLUMN sku text;");
 	});
 
 	it("handles FK references in added fields", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
 		const newSpec = makeSpec({
 			schema: {
-				...oldSpec.schema!,
-				fields: [
-					...oldSpec.schema!.fields,
-					{ name: "owner_id", type: "uuid", references: "auth" },
-				],
+				...s,
+				fields: [...(s?.fields ?? []), { name: "owner_id", type: "uuid", references: "auth" }],
 			},
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
-		const sql = generateAlterMigrationSql(
-			newSpec.schema!,
-			"items",
-			{},
-			diff,
-			newSpec.access,
-			false,
-		);
+		const sql = generateAlterMigrationSql(newSpec.schema, "items", {}, diff, newSpec.access, false);
 
 		expect(sql).toContain("REFERENCES auth.users(id) ON DELETE CASCADE");
 	});

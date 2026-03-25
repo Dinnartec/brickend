@@ -41,13 +41,11 @@ describe("diffBrickSpecs", () => {
 
 	it("detects added fields", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
 		const newSpec = makeSpec({
 			schema: {
-				...oldSpec.schema!,
-				fields: [
-					...oldSpec.schema!.fields,
-					{ name: "email", type: "email", required: false },
-				],
+				...s,
+				fields: [...(s?.fields ?? []), { name: "email", type: "email", required: false }],
 			},
 		});
 
@@ -60,11 +58,10 @@ describe("diffBrickSpecs", () => {
 
 	it("detects removed fields", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
+		const firstField = s?.fields[0];
 		const newSpec = makeSpec({
-			schema: {
-				...oldSpec.schema!,
-				fields: [oldSpec.schema!.fields[0]!],
-			},
+			schema: { ...s, fields: firstField ? [firstField] : [] },
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);
@@ -75,11 +72,13 @@ describe("diffBrickSpecs", () => {
 
 	it("detects changed field types", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
+		const firstField = s?.fields[0];
 		const newSpec = makeSpec({
 			schema: {
-				...oldSpec.schema!,
+				...s,
 				fields: [
-					oldSpec.schema!.fields[0]!,
+					...(firstField ? [firstField] : []),
 					{ name: "name", type: "text", required: true },
 				],
 			},
@@ -93,11 +92,13 @@ describe("diffBrickSpecs", () => {
 
 	it("detects changed field required flag", () => {
 		const oldSpec = makeSpec();
+		const s = oldSpec.schema;
+		const firstField = s?.fields[0];
 		const newSpec = makeSpec({
 			schema: {
-				...oldSpec.schema!,
+				...s,
 				fields: [
-					oldSpec.schema!.fields[0]!,
+					...(firstField ? [firstField] : []),
 					{ name: "name", type: "string", required: false },
 				],
 			},
@@ -109,11 +110,12 @@ describe("diffBrickSpecs", () => {
 
 	it("detects added endpoints", () => {
 		const oldSpec = makeSpec();
+		const a = oldSpec.api;
 		const newSpec = makeSpec({
 			api: {
-				...oldSpec.api!,
+				...a,
 				endpoints: [
-					...oldSpec.api!.endpoints,
+					...(a?.endpoints ?? []),
 					{ method: "DELETE", path: "/:id", handler: "deleteTest" },
 				],
 			},
@@ -127,11 +129,10 @@ describe("diffBrickSpecs", () => {
 
 	it("detects removed endpoints", () => {
 		const oldSpec = makeSpec();
+		const a = oldSpec.api;
+		const firstEndpoint = a?.endpoints[0];
 		const newSpec = makeSpec({
-			api: {
-				...oldSpec.api!,
-				endpoints: [oldSpec.api!.endpoints[0]!],
-			},
+			api: { ...a, endpoints: firstEndpoint ? [firstEndpoint] : [] },
 		});
 
 		const diff = diffBrickSpecs(oldSpec, newSpec);

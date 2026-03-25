@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import * as p from "@clack/prompts";
 import chalk from "chalk";
 import { type BrickSpec, createBrickLoader, loadManifestSpec } from "../core/brick-loader.ts";
@@ -251,7 +252,7 @@ export async function generateCommand(
 
 	if (!dryRun) {
 		// Update manifest with the new spec (in case user made formatting-only changes)
-		const manifestPath = `${projectDir}/brickend/${brickName}/${brickName}.bricks.yaml`;
+		const manifestPath = join(projectDir, "brickend", brickName, `${brickName}.bricks.yaml`);
 		const { stringify: stringifyYaml } = await import("yaml");
 		await Bun.write(manifestPath, stringifyYaml(newSpec, { lineWidth: 120 }));
 
