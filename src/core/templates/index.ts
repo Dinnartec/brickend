@@ -1,3 +1,4 @@
+export { agentsTemplate } from "./agents.ts";
 export { authCoreTemplate } from "./auth-core.ts";
 export type { BrickendYamlOptions, RoleConfig } from "./brickend-yaml.ts";
 export { brickendYamlTemplate } from "./brickend-yaml.ts";

@@ -1,11 +1,9 @@
-// Fix shebang in built files so npm recognizes them as valid bin entries.
-// Bun builds with #!/usr/bin/env bun but npm requires #!/usr/bin/env node.
-// At runtime, users install with `bun install -g` so Bun resolves the binary.
-import { readFileSync, writeFileSync } from "node:fs";
+// Verify shebang in CLI binary points to Bun (not Node).
+// The code is built with `bun build --target bun` and requires the Bun runtime.
+import { readFileSync } from "node:fs";
 
-const files = ["dist/cli/index.js", "dist/mcp/index.js"];
-
-for (const file of files) {
-	const content = readFileSync(file, "utf8");
-	writeFileSync(file, content.replace("#!/usr/bin/env bun", "#!/usr/bin/env node"));
+const first = readFileSync("dist/cli/index.js", "utf8").split("\n")[0];
+if (!first.includes("#!/usr/bin/env bun")) {
+	console.error(`WARNING: dist/cli/index.js shebang is "${first}" — expected "#!/usr/bin/env bun"`);
+	process.exit(1);
 }

@@ -45,8 +45,7 @@
 		"lint": "bunx biome check src/ bricks/ tests/ scripts/ skills/",
 		"lint:fix": "bunx biome check --fix src/ bricks/ tests/ scripts/ skills/",
 		"prepublishOnly": "bun run lint && bun test && bun run build",
-		"smoke-test": "bash scripts/smoke-test.sh",
-		"postinstall": "node scripts/install-skill.js"
+		"smoke-test": "bash scripts/smoke-test.sh"
 	},
 	"dependencies": {
 		"@clack/prompts": "1.1.0",

@@ -6,7 +6,7 @@ import type { BrickSpec } from "../core/brick-loader.ts";
 import { createBrickLoader } from "../core/brick-loader.ts";
 import { getInstallOrder } from "../core/compose.ts";
 import { BrickendError } from "../core/errors.ts";
-import { writeFiles } from "../core/file-writer.ts";
+import { computeFileHashes, writeFiles } from "../core/file-writer.ts";
 import { type GenerationContext, generateBrickFiles } from "../core/generator.ts";
 import { buildOpenApiDoc } from "../core/openapi-generator.ts";
 import { type BrickendState, loadState, saveState } from "../core/state.ts";
@@ -285,6 +285,8 @@ export async function installBrick(
 		installed_at: new Date().toISOString(),
 		config: resolvedConfig,
 		files: writtenPaths,
+		fileHashes: computeFileHashes(generatedFiles),
+		specSnapshot: JSON.parse(JSON.stringify(spec)) as Record<string, unknown>,
 	};
 
 	for (const file of generatedFiles) {

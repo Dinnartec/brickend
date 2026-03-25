@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { AccessRule, ApiSection, BrickSpec, FieldDef, SchemaSection } from "./brick-spec.ts";
 import { BrickendError } from "./errors.ts";
 import type { GeneratedFile } from "./file-writer.ts";
+import type { BrickSpecDiff } from "./spec-diff.ts";
 import type { BrickendState } from "./state.ts";
 import { rbacPermissionsSeedSql } from "./templates/rbac.ts";
 
@@ -121,7 +122,7 @@ function fieldToSql(field: FieldDef, registry: BrickRegistry, isPk: boolean): st
 	return `${field.name} ${sqlType}${notNull}${def}${ref}`;
 }
 
-function buildBrickRegistry(specs: BrickSpec[]): BrickRegistry {
+export function buildBrickRegistry(specs: BrickSpec[]): BrickRegistry {
 	const registry: BrickRegistry = {};
 	for (const spec of specs) {
 		const s = spec.schema;
@@ -1450,6 +1451,127 @@ async function generateDatabaseFiles(
 	}
 
 	// No projectPath (unit tests / offline use)
+	const ts = nextFallbackTs();
+	return [{ path: `supabase/migrations/${ts}_${migrationName}.sql`, content: sql }];
+}
+
+// ---------------------------------------------------------------------------
+// ALTER TABLE migration (used by `brickend generate`)
+// ---------------------------------------------------------------------------
+
+export function generateAlterMigrationSql(
+	schema: SchemaSection,
+	brickName: string,
+	registry: BrickRegistry,
+	diff: BrickSpecDiff,
+	access: AccessRule[] = [],
+	_multiTenant = false,
+): string {
+	const lines: string[] = [];
+	const dbSchema = schema.db_schema ?? "public";
+	const qualifiedTable = dbSchema === "public" ? schema.table : `${dbSchema}.${schema.table}`;
+
+	if (!schema.table) {
+		// Auth bricks or bricks with no table — only handle access changes
+		if (diff.accessChanged && access.length > 0) {
+			lines.push(`DELETE FROM rbac.permissions WHERE resource = '${brickName}';`);
+			lines.push(rbacPermissionsSeedSql(brickName, access));
+		}
+		return lines.join("\n");
+	}
+
+	// Added columns
+	for (const field of diff.fieldsAdded) {
+		const sqlType = fieldToSqlType(field);
+		const notNull = field.required ? " NOT NULL" : "";
+		const def = field.default ? ` DEFAULT ${field.default}` : "";
+		let ref = "";
+		if (field.references === "auth") {
+			ref = " REFERENCES auth.users(id) ON DELETE CASCADE";
+		} else if (field.references) {
+			const refSpec = registry[field.references];
+			if (refSpec) {
+				const refSchema = refSpec.db_schema ?? "public";
+				ref = ` REFERENCES ${refSchema}.${refSpec.table}(${refSpec.pk})`;
+			}
+		}
+
+		if (field.required && !field.default) {
+			lines.push(
+				`-- WARNING: Adding NOT NULL column without DEFAULT to a table with existing rows will fail.`,
+			);
+			lines.push(
+				`-- Consider adding a DEFAULT or making the column nullable, then backfilling data.`,
+			);
+		}
+		lines.push(
+			`ALTER TABLE ${qualifiedTable} ADD COLUMN ${field.name} ${sqlType}${notNull}${def}${ref};`,
+		);
+	}
+
+	// Removed columns
+	for (const field of diff.fieldsRemoved) {
+		lines.push(`ALTER TABLE ${qualifiedTable} DROP COLUMN IF EXISTS ${field.name};`);
+	}
+
+	// Changed columns (safe approach: emit TODO comments)
+	for (const { old: oldField, new: newField } of diff.fieldsChanged) {
+		lines.push(
+			`-- TODO: Manually alter column "${newField.name}" (type: ${oldField.type} -> ${newField.type}, required: ${oldField.required ?? false} -> ${newField.required ?? false})`,
+		);
+	}
+
+	// Access changes
+	if (diff.accessChanged && access.length > 0) {
+		lines.push("");
+		lines.push(`DELETE FROM rbac.permissions WHERE resource = '${brickName}';`);
+		lines.push(rbacPermissionsSeedSql(brickName, access));
+	}
+
+	return lines.join("\n");
+}
+
+export async function generateAlterMigrationFiles(
+	sql: string,
+	brickName: string,
+	projectPath?: string,
+	dryRun = false,
+): Promise<GeneratedFile[]> {
+	if (!sql.trim()) return [];
+
+	const migrationName = `alter_${brickName}`;
+
+	if (projectPath && !dryRun) {
+		const { runSupabase } = await import("./supabase.ts");
+		await waitForUniqueSecond(projectPath);
+
+		const before = new Set(await listMigrationFiles(projectPath));
+		const result = runSupabase(["migration", "new", migrationName], { cwd: projectPath });
+
+		if (result.exitCode !== 0) {
+			throw new BrickendError(
+				`supabase migration new ${migrationName} failed: ${result.stderr}`,
+				"MIGRATION_FAILED",
+				{ migrationName, stderr: result.stderr },
+			);
+		}
+
+		const after = await listMigrationFiles(projectPath);
+		const newFile = after.find((f) => !before.has(f));
+
+		if (!newFile) {
+			throw new BrickendError(
+				`supabase migration new ${migrationName} succeeded but no new file was found`,
+				"MIGRATION_FAILED",
+				{ migrationName },
+			);
+		}
+
+		const migPath = `supabase/migrations/${newFile}`;
+		await Bun.write(join(projectPath, migPath), sql);
+		return [{ path: migPath, content: sql, skipWrite: true }];
+	}
+
 	const ts = nextFallbackTs();
 	return [{ path: `supabase/migrations/${ts}_${migrationName}.sql`, content: sql }];
 }

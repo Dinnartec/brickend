@@ -1,8 +1,12 @@
 #!/usr/bin/env bun
+import { cpSync, existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import { BrickendError } from "../core/errors.ts";
 import { addCommand } from "./add.ts";
+import { generateCommand } from "./generate.ts";
 import { initCommand } from "./init.ts";
 import { lintCommand } from "./lint.ts";
 import { listCommand } from "./list.ts";
@@ -64,6 +68,27 @@ program
 	});
 
 program
+	.command("generate <brick-name>")
+	.description("Regenerate code for a modified brick")
+	.option("--force", "Overwrite files even if manually modified")
+	.option("--dry-run", "Preview changes without writing files")
+	.option("--no-migration", "Skip migration generation")
+	.option("--no-reset", "Skip local database reset after migration")
+	.action(
+		async (
+			brickName: string,
+			options: { force?: boolean; dryRun?: boolean; migration?: boolean; reset?: boolean },
+		) => {
+			try {
+				await generateCommand(brickName, options);
+			} catch (error) {
+				handleError(error);
+				process.exit(1);
+			}
+		},
+	);
+
+program
 	.command("status")
 	.description("Show project status")
 	.action(async () => {
@@ -96,6 +121,38 @@ program
 	.action(async (options: { json?: boolean; templates?: boolean; bricks?: boolean }) => {
 		try {
 			await listCommand(options);
+		} catch (error) {
+			handleError(error);
+			process.exit(1);
+		}
+	});
+
+program
+	.command("install-skill")
+	.description("Install Brickend skill into Claude Code (~/.claude/skills/)")
+	.action(() => {
+		try {
+			const claudeDir = join(homedir(), ".claude");
+			if (!existsSync(claudeDir)) {
+				console.error(
+					chalk.red(
+						"Claude Code not detected (~/.claude/ does not exist). Install Claude Code first.",
+					),
+				);
+				process.exit(1);
+			}
+
+			const packageRoot = resolve(import.meta.dir, "../..");
+			const skillsSource = join(packageRoot, "skills");
+			if (!existsSync(skillsSource)) {
+				console.error(chalk.red("Skills directory not found in package."));
+				process.exit(1);
+			}
+
+			const dest = join(claudeDir, "skills");
+			mkdirSync(dest, { recursive: true });
+			cpSync(skillsSource, dest, { recursive: true });
+			console.log(chalk.green("Brickend skill installed in Claude Code (~/.claude/skills/)"));
 		} catch (error) {
 			handleError(error);
 			process.exit(1);
