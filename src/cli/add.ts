@@ -3,7 +3,7 @@ import * as p from "@clack/prompts";
 import chalk from "chalk";
 import { stringify as stringifyYaml } from "yaml";
 import type { BrickSpec } from "../core/brick-loader.ts";
-import { createBrickLoader } from "../core/brick-loader.ts";
+import { createBrickLoader, loadManifestSpec } from "../core/brick-loader.ts";
 import { getInstallOrder } from "../core/compose.ts";
 import { BrickendError } from "../core/errors.ts";
 import { computeFileHashes, writeFiles } from "../core/file-writer.ts";
@@ -226,7 +226,14 @@ export async function installBrick(
 
 	// Load required brick specs for FK registry resolution
 	const requiredBrickSpecs = await Promise.all(
-		spec.requires.map((dep) => brickLoader.loadBrickSpec(dep.brick)),
+		spec.requires.map(async (dep) => {
+			try {
+				return await brickLoader.loadBrickSpec(dep.brick);
+			} catch {
+				// Fallback: load from project manifest (custom bricks)
+				return await loadManifestSpec(projectDir, dep.brick);
+			}
+		}),
 	);
 
 	// Build generation context
@@ -351,9 +358,21 @@ export async function writeApiDocs(
 ): Promise<void> {
 	const state = await loadState(projectDir);
 	const installedNames = Object.keys(state.bricks);
-	const specs: BrickSpec[] = await Promise.all(
-		installedNames.map((name) => brickLoader.loadBrickSpec(name)),
-	);
+	const specs = (
+		await Promise.all(
+			installedNames.map(async (name) => {
+				try {
+					return await brickLoader.loadBrickSpec(name);
+				} catch {
+					try {
+						return await loadManifestSpec(projectDir, name);
+					} catch {
+						return null;
+					}
+				}
+			}),
+		)
+	).filter((s): s is BrickSpec => s !== null);
 	const doc = buildOpenApiDoc(specs);
 	await Bun.write(join(projectDir, "openapi.yaml"), stringifyYaml(doc, { lineWidth: 120 }));
 	await Bun.write(join(projectDir, "docs", "index.html"), scalarHtmlTemplate(JSON.stringify(doc)));

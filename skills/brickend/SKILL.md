@@ -27,12 +27,21 @@ Returns `{ templates: [...], bricks: [...] }` with names, descriptions, dependen
 - Bricks with `type: "extension"` are auto-installed by their parent — never suggest them directly
 - Always match the template to the user's domain (CRM, marketplace, SaaS, etc.) before defaulting to `starter`
 
+## Critical Rules
+
+- **NEVER manually create `.bricks.yaml` files.** Always use `brickend create-brick <name>` to create new bricks. The command registers the brick in `brickend.state.json`, pre-fills RBAC roles, and resolves dependencies. Manually created YAML files are NOT registered in state and `brickend generate` will reject them.
+- **NEVER manually edit `brickend.state.json`.** The CLI manages state automatically.
+- To add a catalog brick: `brickend add <name>`
+- To create a custom brick: `brickend create-brick <name>` then `brickend generate <name>`
+- To modify an existing brick: edit its manifest in `brickend/<name>/` then `brickend generate <name>`
+
 ## CLI Commands Reference
 
 | Command | Purpose |
 |---------|---------|
-| `brickend init <name>` | Create a new project (git, Supabase, baseline bricks, migrations) |
+| `brickend init [name]` | Create a new project (use `.` or omit for current directory) |
 | `brickend add [bricks...]` | Add bricks to an existing project (resolves dependencies) |
+| `brickend create-brick <name>` | Create a custom brick definition in the project |
 | `brickend generate <brick>` | Regenerate code after editing a brick's manifest |
 | `brickend status` | Show installed bricks, roles, settings |
 | `brickend list` | List available templates and bricks |
@@ -47,13 +56,18 @@ All commands support `--dry-run` to preview without writing. Run `brickend <comm
 2. **Confirm** with the user: project name (lowercase, hyphens OK) and template choice
 3. **Initialize:**
    ```bash
+   # Create in new subdirectory:
    brickend init <project-name> --template <template>
+
+   # Or initialize in current directory:
+   mkdir <project-name> && cd <project-name>
+   brickend init . --template <template>
+   # (omitting the name also defaults to current directory: brickend init --template <template>)
    ```
-   This creates the directory, sets up git + Supabase, generates shared infrastructure (CORS, auth, RBAC, errors), installs baseline bricks, runs migrations, and starts Supabase locally.
+   Sets up git + Supabase, generates shared infrastructure (CORS, auth, RBAC, errors), installs baseline bricks, runs migrations, and starts Supabase locally.
 
 4. **Add optional bricks:**
    ```bash
-   cd <project-name>
    brickend add <brick-name>
    ```
    Dependencies resolve automatically. Run `brickend add` with no args for interactive selection.
@@ -76,11 +90,75 @@ When working inside a project that already exists:
    Shows installed bricks with versions, roles, migration count, multi-tenant flag.
 
 2. **Decide the action:**
-   - Need a new feature? → `brickend add <brick>`
+   - Need a catalog brick? → `brickend add <brick>`
+   - Need a custom brick? → `brickend create-brick <name>` then `brickend generate <name>`
    - Need to modify an installed brick? → Edit manifest + `brickend generate <brick>`
    - Need to validate YAML? → `brickend lint`
 
+## Workflow: Create a Custom Brick
+
+**Always use the CLI command — never write `.bricks.yaml` files manually.** Manual files won't be registered in `brickend.state.json` and `brickend generate` will reject them.
+
+When a user needs a brick that doesn't exist in the catalog (a custom entity, table, or feature):
+
+1. **Create the brick (one command — creates manifest + generates code):**
+   ```bash
+   # Full specification via flags (recommended for AI agents):
+   brickend create-brick invoices \
+     --fields "title:string:required,amount:numeric:required,due_date:string,status:string:required" \
+     --owner \
+     --search-field title \
+     --description "Invoice management"
+   ```
+   This creates the YAML manifest, registers it in state, AND generates all code (schema, services, entrypoint, migration) automatically.
+
+2. **Scaffold mode** (create YAML only, edit before generating):
+   ```bash
+   brickend create-brick invoices --no-generate
+   # Edit brickend/invoices/invoices.bricks.yaml
+   brickend generate invoices
+   ```
+
+**Flags reference:**
+
+| Flag | Description |
+|------|-------------|
+| `--table <name>` | Table name (default: brick name) |
+| `--primary-key <name>` | PK column name (default: singularized table + `_id`) |
+| `--fields <defs>` | Field definitions: `name:type[:required][:nullable][:ref=brick]` |
+| `--owner` | Add `owner_id` referencing auth (with-owner create mode) |
+| `--endpoints <list>` | Handlers: `list,get,create,update,softDelete` (default: all) |
+| `--auth-required` / `--no-auth-required` | Require authentication (default: true) |
+| `--search-field <field>` | Field for `?q=` search |
+| `--requires <bricks>` | Comma-separated brick dependencies |
+| `--description <desc>` | Brick description |
+| `--version <ver>` | Version (default: 1.0.0) |
+| `--dry-run` | Preview YAML without writing |
+| `--no-generate` | Create manifest only, skip code generation |
+| `--no-workspace` | Opt out of workspace scoping in multi-tenant projects |
+
+**Field definition format:** `name:type[:required][:nullable][:ref=brick]`
+- Types: `string`, `text`, `email`, `uuid`, `boolean`, `numeric`, `url`
+- Example: `"title:string:required,price:numeric:required,category_id:uuid:ref=categories"`
+
+**What it does:**
+- Creates `brickend/<name>/<name>.bricks.yaml` with the brick definition
+- Pre-fills `access:` rules from the project's configured roles
+- Registers the brick in `brickend.state.json` (required for `generate`)
+- Auto-adds `auth` to `requires:` when `--owner` is used
+- Auto-adds referenced bricks to `requires:`
+- Custom bricks can reference other custom bricks via `ref=<name>` — dependencies resolve from both catalog and project manifests
+- **Multi-tenant**: if the project has `multi_tenant: true`, auto-sets `workspace_scoped: true` and requires `workspaces` brick (opt out with `--no-workspace`)
+- Validates no duplicate field names
+- OpenAPI docs are auto-updated to include custom brick endpoints
+
+**Note:** By default, `create-brick` creates the manifest AND generates all code automatically. Use `--no-generate` if you want to edit the YAML before generating. Use `--dry-run` to preview the YAML without writing anything.
+
+**Recovery:** If a manifest was created manually (without `create-brick`), running `brickend generate <name>` will auto-detect it, register it in state, and generate code.
+
 ## Workflow: Modify an Installed Brick
+
+**This is for bricks already installed via `brickend add` or `brickend create-brick` + `brickend generate`. To create a NEW brick, use the "Create a Custom Brick" workflow above.**
 
 When a user wants to add/remove fields, change endpoints, or update access rules on an already-installed brick:
 
@@ -148,7 +226,7 @@ Then run `brickend generate users` — regenerates the Zod schema, service files
 
 ## Brick Manifest YAML Reference
 
-This is the structure of `.bricks.yaml` files. Claude needs this to help users edit manifests for `brickend generate`.
+**Reference only — do NOT use this to create new bricks manually.** Use `brickend create-brick` instead. This reference is for understanding and *editing existing* manifests before running `brickend generate`.
 
 ```yaml
 brick:
@@ -264,6 +342,13 @@ cd my-api && brickend add entities && supabase functions serve
 # Multi-tenant SaaS
 brickend init my-saas --template multi-tenant
 cd my-saas && brickend add entities && supabase functions serve
+
+# Create a custom brick
+cd my-api
+brickend create-brick invoices \
+  --fields "title:string:required,amount:numeric:required,status:string:required" \
+  --owner --search-field title
+brickend generate invoices
 
 # Modify an installed brick
 cd my-api

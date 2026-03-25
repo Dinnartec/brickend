@@ -4,8 +4,10 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
+import packageJson from "../../package.json";
 import { BrickendError } from "../core/errors.ts";
 import { addCommand } from "./add.ts";
+import { createBrickCommand } from "./create-brick.ts";
 import { generateCommand } from "./generate.ts";
 import { initCommand } from "./init.ts";
 import { lintCommand } from "./lint.ts";
@@ -30,22 +32,22 @@ function handleError(error: unknown): void {
 
 const program = new Command()
 	.name("brickend")
-	.version("0.1.0")
+	.version(packageJson.version)
 	.description("Build software brick by brick");
 
 program
-	.command("init <project-name>")
-	.description("Initialize a new Brickend project")
+	.command("init [project-name]")
+	.description("Initialize a new Brickend project (use '.' or omit for current directory)")
 	.option("--bricks <bricks>", "Comma-separated list of bricks to install")
 	.option("--template <template>", "Project template to use")
 	.option("--dry-run", "Preview what would be created without writing files")
 	.action(
 		async (
-			projectName: string,
+			projectName: string | undefined,
 			options: { bricks?: string; template?: string; dryRun?: boolean },
 		) => {
 			try {
-				await initCommand(projectName, options);
+				await initCommand(projectName ?? ".", options);
 			} catch (error) {
 				handleError(error);
 				process.exit(1);
@@ -81,6 +83,51 @@ program
 		) => {
 			try {
 				await generateCommand(brickName, options);
+			} catch (error) {
+				handleError(error);
+				process.exit(1);
+			}
+		},
+	);
+
+program
+	.command("create-brick <name>")
+	.description("Create a new custom brick definition in the project")
+	.option("--table <table>", "Database table name (default: brick name)")
+	.option("--primary-key <pk>", "Primary key column name (default: singularized table + _id)")
+	.option("--fields <fields>", "Field definitions: name:type[:required][:nullable][:ref=brick]")
+	.option("--owner", "Add owner_id field referencing auth")
+	.option("--endpoints <handlers>", "Comma-separated: list,get,create,update,softDelete")
+	.option("--auth-required", "Require authentication (default: true)")
+	.option("--no-auth-required", "Do not require authentication")
+	.option("--search-field <field>", "Field for ?q= search")
+	.option("--requires <bricks>", "Comma-separated brick dependencies")
+	.option("--description <desc>", "Brick description")
+	.option("--version <ver>", "Brick version (default: 1.0.0)")
+	.option("--dry-run", "Preview YAML without writing")
+	.option("--no-generate", "Create manifest only, skip code generation")
+	.option("--no-workspace", "Opt out of workspace scoping in multi-tenant projects")
+	.action(
+		async (
+			name: string,
+			options: {
+				table?: string;
+				primaryKey?: string;
+				fields?: string;
+				owner?: boolean;
+				endpoints?: string;
+				authRequired?: boolean;
+				searchField?: string;
+				requires?: string;
+				description?: string;
+				version?: string;
+				dryRun?: boolean;
+				noGenerate?: boolean;
+				noWorkspace?: boolean;
+			},
+		) => {
+			try {
+				await createBrickCommand(name, options);
 			} catch (error) {
 				handleError(error);
 				process.exit(1);
