@@ -28,11 +28,14 @@ bunx biome check --fix .    # Auto-fix
 ```
 src/
   cli/
-    index.ts         # Commander.js entry — registers init, add, status, lint commands
+    index.ts         # Commander.js entry — registers all CLI commands
     init.ts          # brickend init: creates project dir, scaffolds _shared/, selects bricks
     add.ts           # brickend add: resolves deps, generates files, updates state
+    generate.ts      # brickend generate: regenerates code after editing brick manifest
+    create-brick.ts  # brickend create-brick: scaffolds custom brick YAML + generates code
     status.ts        # brickend status: shows installed bricks and project info
     lint.ts          # brickend lint: validates brick YAML files
+    list.ts          # brickend list: lists available templates and bricks
     spinner.ts       # @clack/prompts spinner wrapper
   core/
     brick-loader.ts  # Scans bricks/**/*.brick.yaml, validates with Zod schema
@@ -45,10 +48,12 @@ src/
     supabase.ts      # Spawns supabase CLI commands
     errors.ts        # BrickendError class with typed error codes
     openapi-generator.ts  # Generates OpenAPI/Swagger specs from brick definitions
+    spec-diff.ts          # Diffs old vs new brick specs (fields, endpoints, access)
     template-loader.ts    # Scans bricks/templates/*.template.yaml
     template-spec.ts      # Zod schemas for template YAML
     templates/
       index.ts             # Barrel export for all template modules
+      agents.ts            # AGENTS.md template for AI agent guidance
       auth-core.ts         # Auth infrastructure templates (JWT, session handling)
       brickend-yaml.ts     # brickend.yaml project config template
       cors.ts              # CORS headers template
@@ -67,6 +72,8 @@ src/
 
 scripts/
   smoke-test.sh      # End-to-end smoke test script
+  fix-shebang.js     # Verifies shebang in built CLI binary
+  install-skill.js   # Installs Brickend skill into Claude Code
 
 bricks/
   auth/auth.brick.yaml                           # Auth brick
@@ -77,16 +84,29 @@ bricks/
   catalog/catalog-item-types.brick.yaml          # Extension brick (type: extension)
   catalog/catalog-categories.brick.yaml          # Extension brick (type: extension)
   workspaces/workspaces.brick.yaml               # Workspaces brick (multi-tenant)
-  templates/                                     # Project templates
+  contacts/contacts.brick.yaml                   # CRM: contact management
+  deals/deals.brick.yaml                         # CRM: deal pipeline
+  products/products.brick.yaml                   # Marketplace: product listings
+  orders/orders.brick.yaml                       # Marketplace: order management
+  properties/properties.brick.yaml               # Real Estate: property listings
+  leads/leads.brick.yaml                         # Real Estate: lead management
+  templates/                                     # Project templates (7)
     starter.template.yaml
     business.template.yaml
     multi-tenant.template.yaml
+    saas-admin.template.yaml
+    crm.template.yaml
+    marketplace.template.yaml
+    real-estate.template.yaml
 
 demos/supabase/          # Reference implementation — source of truth for generator output
   functions/_shared/     # What generated _shared/ code should look like
 
 tests/
-  core/                  # Unit tests for core engine modules
+  cli/                   # CLI command tests (status, create-brick)
+  core/                  # Unit tests for core engine modules (generator, spec-diff, etc.)
+  bricks/                # Brick integration tests
+  mcp/                   # MCP tool handler tests
   fixtures/bricks/       # Test brick fixtures (test-brick, dep-brick)
 ```
 
@@ -176,7 +196,7 @@ Bricks with `type: extension` are auto-installed by their parent (via `extension
 
 **Multi-Tenant Workspaces:** When `settings.multi_tenant: true` is set (via template or `brickend.yaml`), the system scopes all applicable tables with a `workspace_id` column. Tables with `with-owner` or `standard` create mode get workspace-scoped automatically; `with-id` tables (e.g. `user_profiles`), auth bricks, and tables with `workspace_scoped: false` are excluded. The `workspaces` brick is auto-installed in the baseline. Entrypoints read an `X-Workspace-Id` header for workspace context. Auth signup in multi-tenant mode creates a default workspace + `workspace_users` entry (instead of `user_roles`). The RBAC `has_permission()` function gains a `p_workspace_id` parameter to check workspace-level permissions.
 
-**Templates:** Project templates (`bricks/templates/*.template.yaml`) define roles, settings (e.g. `multi_tenant`), baseline bricks, and optional bricks. Use `brickend init <name> --template <template-name>` to select a template. Available: `starter`, `business`, `multi-tenant`. Templates are loaded by `createTemplateLoader()` from `template-loader.ts`.
+**Templates:** Project templates (`bricks/templates/*.template.yaml`) define roles, settings (e.g. `multi_tenant`), baseline bricks, and optional bricks. Use `brickend init <name> --template <template-name>` to select a template. Available: `starter`, `business`, `multi-tenant`, `saas-admin`, `crm`, `marketplace`, `real-estate`. Templates are loaded by `createTemplateLoader()` from `template-loader.ts`.
 
 **`_shared/` structure in generated projects:**
 ```
