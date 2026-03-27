@@ -15,10 +15,7 @@ export interface LintOptions {
 	knownRoles?: string[];
 }
 
-export function lintBrickSpec(
-	spec: BrickSpec,
-	options: LintOptions = {},
-): LintDiagnostic[] {
+export function lintBrickSpec(spec: BrickSpec, options: LintOptions = {}): LintDiagnostic[] {
 	const diags: LintDiagnostic[] = [];
 
 	// semver-valid: brick.version must be a valid semver
