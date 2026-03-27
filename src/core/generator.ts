@@ -34,8 +34,21 @@ function pluralize(s: string): string {
 	return `${s}s`;
 }
 
+const SINGULAR_EXCEPTIONS: Record<string, string> = {
+	status: "status",
+	address: "address",
+	business: "business",
+	process: "process",
+	access: "access",
+	class: "class",
+	analysis: "analysis",
+};
+
 function singularize(name: string): string {
+	if (SINGULAR_EXCEPTIONS[name]) return SINGULAR_EXCEPTIONS[name];
 	if (name.endsWith("ies")) return `${name.slice(0, -3)}y`;
+	if (name.endsWith("ses") || name.endsWith("xes") || name.endsWith("zes"))
+		return name.slice(0, -2);
 	if (name.endsWith("s")) return name.slice(0, -1);
 	return name;
 }

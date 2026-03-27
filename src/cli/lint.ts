@@ -4,6 +4,7 @@ import chalk from "chalk";
 import { parse as parseYaml } from "yaml";
 import { BrickSpecSchema } from "../core/brick-spec.ts";
 import { type LintDiagnostic, lintBrickSpec } from "../core/linter.ts";
+import { createTemplateLoader } from "../core/template-loader.ts";
 
 async function collectBrickFiles(inputPath: string): Promise<string[]> {
 	let isDir: boolean;
@@ -45,6 +46,11 @@ export async function lintCommand(inputPath?: string): Promise<void> {
 		return;
 	}
 
+	// Collect all known roles from templates for role existence check
+	const templateLoader = createTemplateLoader();
+	const templates = await templateLoader.listAvailableTemplates();
+	const knownRoles = [...new Set(templates.flatMap((t) => t.roles.map((r) => r.name)))];
+
 	let totalErrors = 0;
 	let totalWarnings = 0;
 	const cwd = process.cwd();
@@ -85,7 +91,7 @@ export async function lintCommand(inputPath?: string): Promise<void> {
 			}
 		} else {
 			// Step 3: Semantic validation
-			const semanticDiags = lintBrickSpec(result.data);
+			const semanticDiags = lintBrickSpec(result.data, { knownRoles });
 			fileDiags.push(...semanticDiags);
 		}
 

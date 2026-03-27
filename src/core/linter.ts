@@ -11,7 +11,11 @@ export interface LintDiagnostic {
 const JS_IDENTIFIER = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
 const SNAKE_KEBAB_CASE = /^[a-z0-9_-]+$/;
 
-export function lintBrickSpec(spec: BrickSpec): LintDiagnostic[] {
+export interface LintOptions {
+	knownRoles?: string[];
+}
+
+export function lintBrickSpec(spec: BrickSpec, options: LintOptions = {}): LintDiagnostic[] {
 	const diags: LintDiagnostic[] = [];
 
 	// semver-valid: brick.version must be a valid semver
@@ -175,6 +179,20 @@ export function lintBrickSpec(spec: BrickSpec): LintDiagnostic[] {
 					rule: "handler-identifier",
 					message: `Handler "${ep.handler}" is not a valid JavaScript identifier`,
 					severity: "error",
+				});
+			}
+		}
+	}
+
+	// access-role-exists: access roles should exist in known project roles
+	if (options.knownRoles && options.knownRoles.length > 0) {
+		for (const rule of accessRules) {
+			if (!options.knownRoles.includes(rule.role)) {
+				diags.push({
+					path: "access",
+					rule: "access-role-exists",
+					message: `Role "${rule.role}" is not defined in project roles (available: ${options.knownRoles.join(", ")}). Permissions for this role will not be created.`,
+					severity: "warning",
 				});
 			}
 		}
