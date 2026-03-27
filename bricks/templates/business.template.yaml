@@ -10,7 +10,7 @@ roles:
   - name: admin
     description: "Full access to all resources"
     is_default: true
-  - name: manager
+  - name: member
     description: "Can manage entities and catalog"
   - name: viewer
     description: "Read-only access"
