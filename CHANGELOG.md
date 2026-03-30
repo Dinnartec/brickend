@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-03-27
+
+### Fixed
+
+- **Business template role mismatch** — renamed `manager` → `member` to match brick access rules (users with `manager` got zero permissions)
+- **Catalog extensions RLS** — removed `own_only: true` from `catalog-item-types` and `catalog-categories` (lookup tables with no owner field were blocking non-admin access)
+- **Linter role validation** — new `access-role-exists` rule warns when access rules reference roles not defined in any template
+- **Improved `singularize()`** — added exception list for words like status, business, address + handle -ses/-xes/-zes suffixes
+- **CLAUDE.md updated** — now reflects all 8 commands, 14 bricks, 7 templates, and new files (spec-diff, agents template, scripts)
+- **CHANGELOG updated** — added missing v0.1.1 and v0.1.2 entries
+
 ## [0.1.2] - 2026-03-25
 
 ### Added

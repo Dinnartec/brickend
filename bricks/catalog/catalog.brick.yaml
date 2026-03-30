@@ -70,10 +70,8 @@ access:
     actions: [list, get, create, update, softDelete]
   - role: member
     actions: [list, get, create]
-    own_only: true
   - role: viewer
     actions: [list, get]
-    own_only: true
 
 api:
   auth_required: true
